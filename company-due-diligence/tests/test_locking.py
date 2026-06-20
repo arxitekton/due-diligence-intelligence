@@ -22,3 +22,15 @@ def test_lock_blocks_second_holder(tmp_path: Path):
         with pytest.raises(LockHeld):
             with company_lock(d, owner="run-2", now=now):
                 pass
+
+
+def test_empty_fresh_lock_is_not_stolen(tmp_path: Path):
+    # Simulate the race window: a lock file exists but is still empty (not yet
+    # written). A fresh empty lock must be treated as held, not stale.
+    d = tmp_path / "companies" / "acme-corp"
+    d.mkdir(parents=True)
+    (d / ".lock").write_text("", encoding="utf-8")
+    now = datetime(2026, 6, 20, 12, 0, 0, tzinfo=UTC)
+    with pytest.raises(LockHeld):
+        with company_lock(d, owner="run-2", now=now):
+            pass

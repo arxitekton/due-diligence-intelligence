@@ -48,4 +48,12 @@ def _is_stale(lock: Path, now: datetime, stale_after: timedelta) -> bool:
         acquired = acquired.replace(tzinfo=now.tzinfo)
         return now - acquired > stale_after
     except (OSError, ValueError, KeyError):
-        return True
+        # Empty/unparseable lock: a just-created lock is momentarily empty between
+        # O_EXCL creation and the JSON write — do NOT treat that as stale (it would
+        # let a concurrent acquirer steal a valid fresh lock). Fall back to file
+        # mtime: only consider it stale if the file itself is older than stale_after.
+        try:
+            mtime = datetime.fromtimestamp(lock.stat().st_mtime, tz=now.tzinfo)
+        except OSError:
+            return True
+        return now - mtime > stale_after
