@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdd.local/schemas/source_inventory.schema.json",
+  "title": "SourceInventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["company_id", "run_id", "generated_at", "sources"],
+  "properties": {
+    "company_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "url", "source_class", "source_priority", "title",
+                     "publication_date", "retrieved_at", "first_seen_at", "last_seen_at",
+                     "content_hash", "retrieval_status", "diff_class", "notes"],
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^src_[0-9a-f]{16}$"},
+          "url": {"type": "string"},
+          "source_class": {"type": "string"},
+          "source_priority": {"type": "string", "enum": ["primary", "secondary", "signal"]},
+          "title": {"type": ["string", "null"]},
+          "publication_date": {"type": ["string", "null"]},
+          "retrieved_at": {"type": ["string", "null"]},
+          "first_seen_at": {"type": ["string", "null"]},
+          "last_seen_at": {"type": ["string", "null"]},
+          "content_hash": {"type": ["string", "null"]},
+          "retrieval_status": {"type": "string", "enum": ["ok", "unavailable", "error"]},
+          "diff_class": {"type": "string", "enum": ["unchanged", "cosmetic_change", "table_change", "content_change", "unavailable", "new"]},
+          "notes": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}
