@@ -28,7 +28,7 @@
     }
   },
   "properties": {
-    "artifact_id": {"type": "string", "pattern": "^art_[0-9a-z]{16}$"},
+    "artifact_id": {"type": "string", "pattern": "^art_[0-9a-f]{16}$"},
     "schema_version": {"type": "string"},
     "company_id": {"type": "string", "minLength": 1},
     "run_id": {"type": "string", "minLength": 1},

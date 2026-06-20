@@ -119,7 +119,7 @@ def test_financial_requires_period_currency_unit():
 
 def _product() -> dict:
     return {
-        "artifact_id": "art_00000000000000p1",
+        "artifact_id": "art_00000000000000a1",
         "schema_version": "1",
         "company_id": "acme-corp",
         "run_id": "20260620T183000Z-a1b2c3",
