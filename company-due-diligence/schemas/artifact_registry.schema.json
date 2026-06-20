@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdd.local/schemas/artifact_registry.schema.json",
+  "title": "ArtifactRegistryEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_time", "run_id", "entity_type", "entity_id", "event_type", "payload"],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "event_time": {"type": "string", "format": "date-time"},
+    "run_id": {"type": "string", "minLength": 1},
+    "entity_type": {"type": "string", "const": "artifact"},
+    "entity_id": {"type": "string", "pattern": "^art_[0-9a-f]{16}$"},
+    "event_type": {
+      "type": "string",
+      "enum": ["extracted", "validated", "superseded", "unavailable"]
+    },
+    "payload": {"type": "object"}
+  }
+}
