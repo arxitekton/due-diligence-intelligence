@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdd.local/schemas/data_quality_report.schema.json",
+  "title": "DataQualityReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id", "company_id", "generated_at", "passed",
+    "gates", "conflicts", "stale_sources", "low_confidence", "missing_source_classes"
+  ],
+  "$defs": {
+    "conflict_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conflict_id", "reason_code", "members", "note"],
+      "properties": {
+        "conflict_id": {"type": "string"},
+        "reason_code": {
+          "type": "string",
+          "enum": [
+            "restatement", "currency_mismatch", "period_mismatch",
+            "scope_mismatch", "gaap_vs_nongaap", "source_authority_conflict"
+          ]
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["artifact_id", "value", "scope", "period", "source_id"],
+            "properties": {
+              "artifact_id": {"type": "string"},
+              "value": {"type": ["string", "number", "null"]},
+              "scope": {"type": ["string", "null"]},
+              "period": {"type": ["string", "null"]},
+              "source_id": {"type": "string"}
+            }
+          }
+        },
+        "note": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "company_id": {"type": "string", "minLength": 1},
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "passed": {"type": "boolean"},
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "passed", "detail"],
+        "properties": {
+          "name": {"type": "string"},
+          "passed": {"type": "boolean"},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/conflict_set"}
+    },
+    "stale_sources": {"type": "array", "items": {"type": "string"}},
+    "low_confidence": {"type": "array", "items": {"type": "string"}},
+    "missing_source_classes": {"type": "array", "items": {"type": "string"}}
+  }
+}
