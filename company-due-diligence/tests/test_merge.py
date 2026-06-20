@@ -1,4 +1,4 @@
-from cdd.merge import merge_financials
+from cdd.merge import merge_financials, merge_products
 
 
 def _fin(*, artifact_id: str, source_id: str, value: float, currency: str = "USD",
@@ -61,3 +61,84 @@ def test_restatement_conflict():
         _fin(artifact_id="art_0000000000000a02", source_id="src_0000000000000002", value=1234.0, restated=True),  # noqa: E501
     ])
     assert res["conflicts"][0]["reason_code"] == "restatement"
+
+
+def _prod(
+    *,
+    artifact_id: str,
+    source_id: str,
+    family: str = "cloud_platform",
+    entity_type: str = "platform",
+    name: str = "Acme Cloud",
+    lifecycle: str = "ga",
+) -> dict:  # type: ignore[type-arg]
+    return {
+        "artifact_id": artifact_id,
+        "schema_version": "1",
+        "company_id": "acme-corp",
+        "run_id": "20260620T183000Z-a1b2c3",
+        "source_id": source_id,
+        "lineage": {
+            "source_snapshot_id": "s",
+            "content_path": "p.html",
+            "locator": {"section": "products"},
+            "snippet": "x",
+            "extraction_prompt": {"name": "product_extraction", "version": "1"},
+        },
+        "source_context": {
+            "document_title": "Products",
+            "section_path": [],
+            "source_native_statement_name": None,
+            "table_id": None,
+            "page": None,
+        },
+        "entities": [
+            {
+                "entity_id": "ent_1",
+                "entity_type": entity_type,
+                "source_native_name": name,
+                "aliases": [],
+                "source_native_category_path": [],
+                "parent_entity_id": None,
+                "display_order": 1,
+                "description_quote": None,
+                "lifecycle_status": lifecycle,
+                "geography_scope": [],
+                "pricing_observations": [],
+                "attributes": [],
+                "normalized_candidate": {"family": family, "confidence": 0.9},
+            }
+        ],
+        "notes": None,
+    }
+
+
+def test_products_merge_when_lifecycle_agrees() -> None:
+    res = merge_products([
+        _prod(artifact_id="art_0000000000000b01", source_id="src_0000000000000001"),
+        _prod(artifact_id="art_0000000000000b02", source_id="src_0000000000000002"),
+    ])
+    assert res["conflicts"] == []
+    assert len(res["merged"]) == 1
+    assert {m["source_id"] for m in res["merged"][0]["members"]} == {
+        "src_0000000000000001",
+        "src_0000000000000002",
+    }
+
+
+def test_products_conflict_on_lifecycle_disagreement() -> None:
+    res = merge_products([
+        _prod(
+            artifact_id="art_0000000000000b01",
+            source_id="src_0000000000000001",
+            lifecycle="ga",
+        ),
+        _prod(
+            artifact_id="art_0000000000000b02",
+            source_id="src_0000000000000002",
+            lifecycle="deprecated",
+        ),
+    ])
+    assert res["merged"] == []
+    assert len(res["conflicts"]) == 1
+    assert res["conflicts"][0]["reason_code"] == "source_authority_conflict"

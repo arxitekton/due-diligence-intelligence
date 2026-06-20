@@ -147,3 +147,52 @@ def test_export_jsonl_redact_cli(tmp_path: Path) -> None:
     )
     assert r.returncode == 0, r.stderr
     assert json.loads(out.read_text().splitlines()[0])["email"] == "[REDACTED]"
+
+
+def test_merge_artifacts_cli_handles_products(tmp_path: Path) -> None:
+    sdir = tmp_path / "structured"
+    sdir.mkdir()
+    prod = {
+        "artifact_id": "art_0000000000000b01",
+        "schema_version": "1",
+        "company_id": "acme-corp",
+        "run_id": "r",
+        "source_id": "src_0000000000000001",
+        "lineage": {
+            "source_snapshot_id": "s",
+            "content_path": "p",
+            "locator": {"x": 1},
+            "snippet": "x",
+            "extraction_prompt": {"name": "product_extraction", "version": "1"},
+        },
+        "source_context": {
+            "document_title": "P",
+            "section_path": [],
+            "source_native_statement_name": None,
+            "table_id": None,
+            "page": None,
+        },
+        "entities": [
+            {
+                "entity_id": "e1",
+                "entity_type": "platform",
+                "source_native_name": "Acme",
+                "aliases": [],
+                "source_native_category_path": [],
+                "parent_entity_id": None,
+                "display_order": 1,
+                "description_quote": None,
+                "lifecycle_status": "ga",
+                "geography_scope": [],
+                "pricing_observations": [],
+                "attributes": [],
+                "normalized_candidate": {"family": "cloud", "confidence": 0.9},
+            }
+        ],
+        "notes": None,
+    }
+    (sdir / "prod.json").write_text(json.dumps(prod), encoding="utf-8")
+    r = _run(["scripts/merge_artifacts.py", "--run-dir", str(tmp_path)])
+    assert r.returncode == 0, r.stderr
+    merged = json.loads((sdir / "_merged.json").read_text())
+    assert "product" in merged and "financial" in merged
