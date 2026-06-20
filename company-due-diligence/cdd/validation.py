@@ -13,7 +13,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from cdd.artifacts import artifact_kind, iter_structured, lineage_ok
+from cdd.merge import merge_financials
 from cdd.paths import OutputPaths
+from cdd.registry import derive_source_state
 from cdd.schema import validate
 from cdd.timeutil import iso_utc
 
@@ -36,6 +38,9 @@ _KIND_TO_SCHEMA: dict[str, str] = {
     "product": "product_artifact",
     "extracted": "extracted_artifact",
 }
+
+# Internal gate result: (name, passed, detail, fatal)
+_GateResult = tuple[str, bool, str, bool]
 
 
 def _gate(name: str, *, passed: bool, detail: str) -> dict[str, Any]:
@@ -67,7 +72,7 @@ def _collect_artifacts(
 
 
 # ---------------------------------------------------------------------------
-# Fatal gates
+# Fatal gates — each returns (name, passed, detail, fatal=True)
 # ---------------------------------------------------------------------------
 
 
@@ -75,7 +80,7 @@ def _gate_schemas_valid(
     artifacts: list[tuple[Path, dict[str, Any]]],
     *,
     mode: str,
-) -> dict[str, Any]:
+) -> _GateResult:
     offending: list[str] = []
     strict = mode in _STRICT_MODES
     for p, doc in artifacts:
@@ -88,7 +93,7 @@ def _gate_schemas_valid(
             offending.append(f"{p.name}: {'; '.join(result.errors)}")
     passed = len(offending) == 0
     detail = "; ".join(offending) if offending else "all artifacts valid"
-    return _gate("schemas_valid", passed=passed, detail=detail)
+    return ("schemas_valid", passed, detail, True)
 
 
 def _gate_referential_integrity(
@@ -96,7 +101,7 @@ def _gate_referential_integrity(
     *,
     run_dir: Path,
     inventory_source_ids: set[str],
-) -> dict[str, Any]:
+) -> _GateResult:
     dangling: list[str] = []
 
     artifact_ids: set[str] = {
@@ -128,14 +133,14 @@ def _gate_referential_integrity(
 
     passed = len(dangling) == 0
     detail = "; ".join(dangling) if dangling else "all references resolved"
-    return _gate("referential_integrity", passed=passed, detail=detail)
+    return ("referential_integrity", passed, detail, True)
 
 
 def _gate_lineage_complete(
     artifacts: list[tuple[Path, dict[str, Any]]],
     *,
     run_dir: Path,
-) -> dict[str, Any]:
+) -> _GateResult:
     violations: list[str] = []
 
     # Every artifact must pass lineage_ok
@@ -162,12 +167,12 @@ def _gate_lineage_complete(
 
     passed = len(violations) == 0
     detail = "; ".join(violations) if violations else "lineage complete"
-    return _gate("lineage_complete", passed=passed, detail=detail)
+    return ("lineage_complete", passed, detail, True)
 
 
 def _gate_id_integrity(
     artifacts: list[tuple[Path, dict[str, Any]]],
-) -> dict[str, Any]:
+) -> _GateResult:
     ids: list[str] = [
         str(doc["artifact_id"])
         for _, doc in artifacts
@@ -177,12 +182,12 @@ def _gate_id_integrity(
     dupes = [aid for aid, n in counts.items() if n > 1]
     passed = len(dupes) == 0
     detail = f"duplicate artifact_ids: {', '.join(dupes)}" if dupes else "no duplicates"
-    return _gate("id_integrity", passed=passed, detail=detail)
+    return ("id_integrity", passed, detail, True)
 
 
 def _gate_financial_usability(
     artifacts: list[tuple[Path, dict[str, Any]]],
-) -> dict[str, Any]:
+) -> _GateResult:
     problems: list[str] = []
 
     for p, doc in artifacts:
@@ -249,22 +254,23 @@ def _gate_financial_usability(
 
     passed = len(problems) == 0
     detail = "; ".join(problems) if problems else "financial usability ok"
-    return _gate("financial_usability", passed=passed, detail=detail)
+    return ("financial_usability", passed, detail, True)
 
 
-# ---------------------------------------------------------------------------
-# Lenient gates (pass-when-not-applicable)
-# ---------------------------------------------------------------------------
+def _gate_manifest_closure(*, run_dir: Path) -> _GateResult:
+    """Check that every path listed in run_manifest.output_paths exists on disk.
 
-
-def _gate_manifest_closure(*, run_dir: Path) -> dict[str, Any]:
+    Content-hash recompute is NOT performed: run_manifest.output_paths records
+    bare paths with no associated hashes (a schema addition would be needed —
+    out of scope).  Existence is verified; hash integrity is not yet wired.
+    """
     manifest = _load_json(run_dir / "run_manifest.json")
     if manifest is None:
-        return _gate("manifest_closure", passed=True, detail="no manifest file")
+        return ("manifest_closure", True, "no manifest file", True)
 
     output_paths: Any = manifest.get("output_paths", [])
     if not output_paths:
-        return _gate("manifest_closure", passed=True, detail="output_paths empty")
+        return ("manifest_closure", True, "output_paths empty", True)
 
     missing: list[str] = []
     for op in output_paths:
@@ -279,25 +285,77 @@ def _gate_manifest_closure(*, run_dir: Path) -> dict[str, Any]:
     detail = (
         f"missing paths: {', '.join(missing)}"
         if missing
-        else "all output_paths present"
+        else "all output_paths present (existence verified; hash recompute not yet wired)"
     )
-    return _gate("manifest_closure", passed=passed, detail=detail)
+    return ("manifest_closure", passed, detail, True)
 
 
-def _gate_refresh_semantics(*, mode: str) -> dict[str, Any]:
-    if mode == "incremental_refresh":
-        detail = "not evaluated: per-run data insufficient to verify source availability markers"
-    else:
-        detail = "not applicable for mode: " + mode
-    return _gate("refresh_semantics", passed=True, detail=detail)
+def _gate_refresh_semantics(
+    *,
+    mode: str,
+    paths: OutputPaths,
+    inventory_source_ids: set[str],
+) -> _GateResult:
+    """Verify that no previously-active source was silently dropped in incremental_refresh.
+
+    For non-incremental modes: passes immediately (not applicable).
+    For incremental_refresh:
+      - If no source_registry exists: passes (no prior state to compare against).
+      - Otherwise derives currently active/reappeared source IDs from the registry
+        and reports any that are absent from this run's inventory without an
+        unavailable marker (silent drop = gate failure).
+    """
+    if mode != "incremental_refresh":
+        return ("refresh_semantics", True, f"not applicable (mode={mode})", True)
+
+    if not paths.source_registry.exists():
+        return ("refresh_semantics", True, "no source registry", True)
+
+    state = derive_source_state(paths.source_registry)
+    known_active: set[str] = {
+        sid for sid, s in state.items() if s["status"] in ("active", "reappeared")
+    }
+    silently_dropped = sorted(known_active - inventory_source_ids)
+    if silently_dropped:
+        joined = ", ".join(silently_dropped)
+        detail = (
+            "known sources absent from inventory without unavailable marker: "
+            + joined
+        )
+        return ("refresh_semantics", False, detail, True)
+    return ("refresh_semantics", True, "all known active sources accounted for", True)
 
 
-def _gate_conflict_visibility() -> dict[str, Any]:
-    return _gate(
-        "conflict_visibility",
-        passed=True,
-        detail="evaluated by merge step",
-    )
+def _gate_conflict_visibility(
+    artifacts: list[tuple[Path, dict[str, Any]]],
+) -> tuple[_GateResult, list[dict[str, Any]]]:
+    """Surface financial conflicts into the report (never silently merged).
+
+    Collects all financial artifacts, runs merge_financials, and returns both
+    the gate result and the conflict list to populate report["conflicts"].
+    The gate passes by construction once conflicts are surfaced — surfacing IS
+    the visibility guarantee per spec §10.
+
+    If merge_financials raises (e.g. because a financial artifact is missing
+    currency_reported — caught by financial_usability), we degrade gracefully:
+    return an empty conflict list and note the skip.  financial_usability will
+    mark the run failed independently.
+    """
+    financials: list[dict[str, Any]] = [
+        doc for _, doc in artifacts if artifact_kind(doc) == "financial"
+    ]
+    try:
+        result = merge_financials(financials)
+        conflicts: list[dict[str, Any]] = result["conflicts"]
+        n = len(conflicts)
+        detail = f"{n} conflict(s) surfaced"
+    except (KeyError, TypeError, ValueError):
+        conflicts = []
+        detail = (
+            "merge skipped: financial artifact(s) malformed "
+            "(see financial_usability gate for details)"
+        )
+    return ("conflict_visibility", True, detail, True), conflicts
 
 
 # ---------------------------------------------------------------------------
@@ -416,8 +474,11 @@ def validate_run(
         else paths.company_slug
     )
 
-    # --- Fatal gates ---
-    gates: list[dict[str, Any]] = [
+    # --- Run all gates (all 8 are FATAL per spec §10) ---
+    # conflict_visibility returns (gate_result, conflicts) so handle separately
+    cv_result, conflicts = _gate_conflict_visibility(artifacts)
+
+    gate_results: list[_GateResult] = [
         _gate_schemas_valid(artifacts, mode=mode),
         _gate_referential_integrity(
             artifacts,
@@ -427,13 +488,23 @@ def validate_run(
         _gate_lineage_complete(artifacts, run_dir=paths.run_dir),
         _gate_id_integrity(artifacts),
         _gate_financial_usability(artifacts),
-        # Lenient gates
         _gate_manifest_closure(run_dir=paths.run_dir),
-        _gate_refresh_semantics(mode=mode),
-        _gate_conflict_visibility(),
+        _gate_refresh_semantics(
+            mode=mode,
+            paths=paths,
+            inventory_source_ids=inventory_source_ids,
+        ),
+        cv_result,
     ]
 
-    passed: bool = all(g["passed"] for g in gates[:5])  # only fatal gates
+    # passed = all FATAL gates pass (all 8 are fatal; strip internal fatal flag for report)
+    passed: bool = all(g_passed for (_, g_passed, _, fatal) in gate_results if fatal)
+
+    # Build public gate dicts (schema: name/passed/detail only — no fatal field)
+    gates: list[dict[str, Any]] = [
+        _gate(name, passed=g_passed, detail=detail)
+        for (name, g_passed, detail, _) in gate_results
+    ]
 
     # --- Non-fatal reporters ---
     stale: list[str] = _stale_sources(
@@ -452,7 +523,7 @@ def validate_run(
         "generated_at": iso_utc(now),
         "passed": passed,
         "gates": gates,
-        "conflicts": [],
+        "conflicts": conflicts,
         "stale_sources": stale,
         "low_confidence": low_conf,
         "missing_source_classes": missing_classes,
