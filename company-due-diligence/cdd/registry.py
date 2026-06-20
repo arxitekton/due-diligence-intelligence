@@ -52,7 +52,14 @@ _ACTIVE = {"discovered", "retrieved", "canonicalized", "extracted", "validated"}
 
 def derive_source_state(log: Path) -> dict[str, dict[str, Any]]:
     state: dict[str, dict[str, Any]] = {}
-    for e in read_events(log):
+    # Status must reflect the latest event by event_time, not file/append order,
+    # so backfilled or out-of-order events resolve deterministically. event_time
+    # is RFC3339 UTC ("...Z"), so lexical sort == chronological; event_id breaks ties.
+    events = sorted(
+        read_events(log),
+        key=lambda e: (str(e["event_time"]), str(e["event_id"])),
+    )
+    for e in events:
         eid = str(e["entity_id"])
         when = str(e["event_time"])
         etype = str(e["event_type"])

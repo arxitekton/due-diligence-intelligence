@@ -6,6 +6,10 @@ from typing import Literal
 
 from cdd.canonicalize import canonicalize
 
+# NOTE: "table_change" is part of the diff taxonomy but is NOT emitted by
+# classify_diff() here — it requires separate table-text hashing, which lands in
+# Plan 2 (compare_runs / extraction). It is kept in the Literal so downstream code
+# can reference the full taxonomy now.
 DiffClass = Literal["unchanged", "cosmetic_change", "table_change", "content_change", "unavailable"]
 
 

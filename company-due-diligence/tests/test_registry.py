@@ -64,3 +64,34 @@ def test_derive_marks_unavailable_then_reappeared(tmp_path: Path):
     append_event(log, _evt("evt_000003", "retrieved", t3), schema_name="source_registry")
     s = derive_source_state(log)["src_0123456789abcdef"]
     assert s["status"] == "reappeared"
+
+
+def test_derive_status_respects_event_time_not_append_order(tmp_path: Path):
+    # Events appended out of chronological order must still resolve status by
+    # event_time: the later "retrieved" (t2) wins over the earlier "unavailable" (t1).
+    log = tmp_path / "source_registry.jsonl"
+    t1 = datetime(2026, 6, 1, tzinfo=UTC)
+    t2 = datetime(2026, 6, 20, tzinfo=UTC)
+    append_event(log, _evt("evt_000001", "retrieved", t2), schema_name="source_registry")
+    append_event(log, _evt("evt_000002", "unavailable", t1), schema_name="source_registry")
+    s = derive_source_state(log)["src_0123456789abcdef"]
+    assert s["status"] == "reappeared"
+    assert s["first_seen_at"] == "2026-06-01T00:00:00Z"
+    assert s["last_seen_at"] == "2026-06-20T00:00:00Z"
+
+
+def test_append_rejects_malformed_event_time(tmp_path: Path):
+    import pytest
+
+    log = tmp_path / "source_registry.jsonl"
+    bad = {
+        "event_id": "evt_000001",
+        "event_time": "NOT-A-DATE",
+        "run_id": "20260620T183000Z-a1",
+        "entity_type": "source",
+        "entity_id": "src_0123456789abcdef",
+        "event_type": "retrieved",
+        "payload": {},
+    }
+    with pytest.raises(ValueError):
+        append_event(log, bad, schema_name="source_registry")

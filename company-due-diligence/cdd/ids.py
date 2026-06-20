@@ -13,7 +13,12 @@ _LEGAL_SUFFIXES = {
     "limited", "llc", "llp", "plc", "sa", "ag", "gmbh", "nv", "bv", "spa",
     "pty", "kk", "oyj", "ab", "as",
 }
-_TRACKING_PREFIXES = ("utm_", "fbclid", "gclid", "mc_", "ref", "_ga")
+# Exact param names dropped as tracking noise (short/ambiguous — never prefix-match
+# these, or legitimate params like ``reference``/``referrer`` would be stripped and
+# collapse distinct logical sources onto one source_id).
+_TRACKING_EXACT = {"ref", "fbclid", "gclid"}
+# Param-name prefixes that are unambiguously tracking families.
+_TRACKING_PREFIXES = ("utm_", "mc_", "_ga")
 
 
 def normalize_company_id(name: str) -> str:
@@ -45,7 +50,7 @@ def _normalize_url(url: str) -> str:
     query_pairs = [
         (k, v)
         for k, v in parse_qsl(parts.query, keep_blank_values=True)
-        if not k.lower().startswith(_TRACKING_PREFIXES)
+        if k.lower() not in _TRACKING_EXACT and not k.lower().startswith(_TRACKING_PREFIXES)
     ]
     query = urlencode(sorted(query_pairs))
     return urlunsplit((scheme, netloc, path, query, ""))

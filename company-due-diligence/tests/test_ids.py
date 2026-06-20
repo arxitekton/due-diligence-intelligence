@@ -11,6 +11,23 @@ def test_slug_strips_legal_suffixes_and_accents():
     assert normalize_company_id("Société Générale S.A.") == "societe-generale"
 
 
+def test_source_id_preserves_non_tracking_ref_params():
+    # Params merely *starting with* "ref" (reference, referrer) must NOT be dropped,
+    # or distinct logical sources would collapse onto one source_id.
+    a = source_id_for("https://example.com/x?reference=12345", source_class="ir")
+    b = source_id_for("https://example.com/x?reference=99999", source_class="ir")
+    c = source_id_for("https://example.com/x", source_class="ir")
+    assert a != b
+    assert a != c and b != c
+
+
+def test_source_id_drops_exact_ref_tracking_param():
+    # The exact "ref" tracking param IS dropped.
+    a = source_id_for("https://example.com/x?ref=twitter", source_class="ir")
+    b = source_id_for("https://example.com/x", source_class="ir")
+    assert a == b
+
+
 def test_slug_collapses_repeats_and_trims():
     assert normalize_company_id("  Foo   &   Bar, Inc.  ") == "foo-bar"
 

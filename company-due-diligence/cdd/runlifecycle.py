@@ -7,6 +7,7 @@ from typing import Any
 
 from cdd.ids import make_run_id, normalize_company_id
 from cdd.paths import RUN_SUBDIRS, OutputPaths
+from cdd.schema import validate
 from cdd.timeutil import iso_utc
 
 
@@ -69,6 +70,9 @@ def create_run(
     paths.company_dir.joinpath("runs").mkdir(exist_ok=True)
 
     manifest = _seed_manifest(run_id, company_slug, company_name, mode, now, input_parameters)
+    result = validate(manifest, "run_manifest")
+    if not result.ok:
+        raise ValueError(f"seeded run_manifest failed validation: {result.errors}")
     (paths.run_dir / "run_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
