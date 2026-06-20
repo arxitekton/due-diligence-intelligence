@@ -9,9 +9,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from cdd.timeutil import compact_stamp
 
 _LEGAL_SUFFIXES = {
-    "inc", "incorporated", "corporation", "company", "ltd",
-    "limited", "llc", "llp", "plc", "sa", "gmbh", "spa",
-    "pty", "kk", "oyj",
+    "inc", "incorporated", "corporation", "company", "co", "ltd",
+    "limited", "llc", "llp", "plc", "sa", "ag", "gmbh", "nv", "bv", "spa",
+    "pty", "kk", "oyj", "ab", "as",
 }
 _TRACKING_PREFIXES = ("utm_", "fbclid", "gclid", "mc_", "ref", "_ga")
 
