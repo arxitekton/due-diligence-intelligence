@@ -1,6 +1,31 @@
 import pytest
 
-from cdd.extract.fetch import UnsafeURLError, _is_blocked_ip, assert_public_url
+from cdd.extract.fetch import UnsafeURLError, _is_blocked_ip, assert_public_url, get
+
+
+class _FakeResp:
+    def __init__(self, status, headers, content=b"", url="https://example.com/"):
+        self.status_code = status
+        self.headers = headers
+        self.content = content
+        self.url = url
+
+
+class _FakeClient:
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.closed = False
+
+    def get(self, url):  # noqa: ARG002
+        return self._responses.pop(0)
+
+    def close(self):
+        self.closed = True
+
+
+def _ipish(host: str) -> list[str]:
+    """Resolver: treat dotted-numeric hosts as their own IP, else a public IP."""
+    return [host] if host[0].isdigit() else ["93.184.216.34"]
 
 
 def test_rejects_non_http_schemes():
@@ -46,3 +71,26 @@ def test_assert_public_url_allows_public_host():
 def test_assert_public_url_requires_host():
     with pytest.raises(UnsafeURLError):
         assert_public_url("https://", resolver=lambda h: ["93.184.216.34"])
+
+
+def test_get_blocks_redirect_to_private():
+    client = _FakeClient([_FakeResp(302, {"location": "http://10.0.0.1/meta"})])
+    with pytest.raises(UnsafeURLError):
+        get("https://example.com/", resolver=_ipish, client=client)
+
+
+def test_get_success_returns_content_and_metadata():
+    client = _FakeClient([_FakeResp(200, {"content-type": "text/html"}, b"<html/>")])
+    content, meta = get("https://example.com/", resolver=_ipish, client=client)
+    assert content == b"<html/>"
+    assert meta["status"] == 200
+    assert meta["content_type"] == "text/html"
+    # injected client is owned by the caller, so get() must not close it
+    assert client.closed is False
+
+
+def test_get_rejects_too_many_redirects():
+    loop = [_FakeResp(302, {"location": "https://example.com/next"}) for _ in range(10)]
+    client = _FakeClient(loop)
+    with pytest.raises(UnsafeURLError):
+        get("https://example.com/", resolver=_ipish, client=client)
