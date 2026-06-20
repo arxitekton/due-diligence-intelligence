@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from cdd.paths import OutputPaths
@@ -43,7 +43,8 @@ def _dossier(citation: str) -> dict:
         "run_id": "20260620T183000Z-a1b2c3", "company_id": "acme-corp",
         "research_date": "2026-06-20T18:30:00Z",
         "retrieval_window": {"from": "2026-06-01T00:00:00Z", "to": "2026-06-20T18:30:00Z"},
-        "counts": {"sources_discovered": 1, "sources_used": 1, "sources_changed": 0, "sources_unavailable": 0},
+        "counts": {"sources_discovered": 1, "sources_used": 1,
+                   "sources_changed": 0, "sources_unavailable": 0},
         "known_gaps": [], "confidence_summary": "medium",
         "sections": [{"key": "executive_summary", "title": "Executive Summary",
                       "claims": [{"text": "Acme is a SaaS company.", "kind": "fact",
@@ -54,18 +55,22 @@ def _dossier(citation: str) -> dict:
 def _build(tmp: Path, *, dossier: dict, artifacts: list[dict]) -> OutputPaths:
     paths = OutputPaths(root=tmp, company_slug="acme-corp", run_id="20260620T183000Z-a1b2c3")
     (paths.run_dir / "structured").mkdir(parents=True)
+    structured = paths.run_dir / "structured"
     for i, art in enumerate(artifacts):
-        (paths.run_dir / "structured" / f"art_{i}.json").write_text(json.dumps(art), encoding="utf-8")
-    (paths.run_dir / "structured" / "source_inventory.json").write_text(json.dumps(_inventory()), encoding="utf-8")
-    (paths.run_dir / "final_dossier.json").write_text(json.dumps(dossier), encoding="utf-8")
+        (structured / f"art_{i}.json").write_text(json.dumps(art), encoding="utf-8")
+    (structured / "source_inventory.json").write_text(
+        json.dumps(_inventory()), encoding="utf-8")
+    (paths.run_dir / "final_dossier.json").write_text(
+        json.dumps(dossier), encoding="utf-8")
     (paths.run_dir / "run_manifest.json").write_text(
-        json.dumps({"run_id": "20260620T183000Z-a1b2c3", "company_id": "acme-corp", "output_paths": []}),
+        json.dumps({"run_id": "20260620T183000Z-a1b2c3", "company_id": "acme-corp",
+                    "output_paths": []}),
         encoding="utf-8")
     return paths
 
 
 def _now() -> datetime:
-    return datetime(2026, 6, 20, 18, 30, tzinfo=timezone.utc)
+    return datetime(2026, 6, 20, 18, 30, tzinfo=UTC)
 
 
 def _gate(report: dict, name: str) -> dict:
