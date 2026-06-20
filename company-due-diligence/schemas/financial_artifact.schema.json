@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdd.local/schemas/financial_artifact.schema.json",
+  "title": "FinancialArtifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_id", "schema_version", "company_id", "run_id", "source_id",
+    "lineage", "source_context", "periods", "line_items", "footnotes",
+    "normalization", "notes"
+  ],
+  "$defs": {
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_snapshot_id", "content_path", "locator", "snippet", "extraction_prompt"],
+      "properties": {
+        "source_snapshot_id": {"type": "string", "minLength": 1},
+        "content_path": {"type": "string", "minLength": 1},
+        "locator": {"type": "object", "minProperties": 1},
+        "snippet": {"type": "string", "minLength": 1},
+        "extraction_prompt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {"name": {"type": "string"}, "version": {"type": "string"}}
+        }
+      }
+    }
+  },
+  "properties": {
+    "artifact_id": {"type": "string", "pattern": "^art_[0-9a-f]{16}$"},
+    "schema_version": {"type": "string"},
+    "company_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "pattern": "^src_[0-9a-f]{16}$"},
+    "lineage": {"$ref": "#/$defs/lineage"},
+    "source_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_title", "section_path", "source_native_statement_name", "table_id", "page"],
+      "properties": {
+        "document_title": {"type": ["string", "null"]},
+        "section_path": {"type": "array", "items": {"type": "string"}},
+        "source_native_statement_name": {"type": ["string", "null"]},
+        "table_id": {"type": ["string", "null"]},
+        "page": {"type": ["integer", "null"]}
+      }
+    },
+    "periods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "period_id", "source_native_label", "period_start", "period_end",
+          "as_of_date", "period_type", "fiscal_year", "fiscal_quarter",
+          "currency_reported", "unit_scale", "decimals", "restated"
+        ],
+        "properties": {
+          "period_id": {"type": "string"},
+          "source_native_label": {"type": "string"},
+          "period_start": {"type": ["string", "null"]},
+          "period_end": {"type": ["string", "null"]},
+          "as_of_date": {"type": ["string", "null"]},
+          "period_type": {"type": "string", "enum": ["FY", "Q", "TTM", "LTM", "YTD"]},
+          "fiscal_year": {"type": ["integer", "null"]},
+          "fiscal_quarter": {"type": ["integer", "null"]},
+          "currency_reported": {"type": "string"},
+          "unit_scale": {"type": "string", "enum": ["ones", "thousands", "millions", "billions"]},
+          "decimals": {"type": ["integer", "null"]},
+          "restated": {"type": "boolean"}
+        }
+      }
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line_item_id", "source_native_label", "source_native_path", "scope",
+          "row_order", "column_ref", "value_raw", "value_numeric",
+          "sign_convention", "footnote_refs", "cell_locator", "normalized_candidate"
+        ],
+        "properties": {
+          "line_item_id": {"type": "string"},
+          "source_native_label": {"type": "string"},
+          "source_native_path": {"type": "array", "items": {"type": "string"}},
+          "scope": {"type": "string", "enum": ["consolidated", "segment", "subsidiary", "non_gaap"]},
+          "row_order": {"type": "integer"},
+          "column_ref": {"type": "string"},
+          "value_raw": {"type": ["string", "null"]},
+          "value_numeric": {"type": ["number", "null"]},
+          "sign_convention": {"type": "string", "enum": ["positive", "negative", "as_reported"]},
+          "footnote_refs": {"type": "array", "items": {"type": "string"}},
+          "cell_locator": {"type": "object", "minProperties": 1},
+          "normalized_candidate": {
+            "oneOf": [
+              {"type": "null"},
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["taxonomy_key", "confidence"],
+                "properties": {
+                  "taxonomy_key": {"type": "string"},
+                  "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "footnotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["footnote_id", "text", "locator"],
+        "properties": {
+          "footnote_id": {"type": "string"},
+          "text": {"type": "string"},
+          "locator": {"type": "object", "minProperties": 1}
+        }
+      }
+    },
+    "normalization": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fx_source", "fx_date", "target_currency", "fiscal_to_calendar"],
+          "properties": {
+            "fx_source": {"type": ["string", "null"]},
+            "fx_date": {"type": ["string", "null"]},
+            "target_currency": {"type": ["string", "null"]},
+            "fiscal_to_calendar": {"type": "object"}
+          }
+        }
+      ]
+    },
+    "notes": {"type": ["string", "null"]}
+  }
+}

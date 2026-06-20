@@ -63,3 +63,17 @@ def source_id_for(url: str, source_class: str) -> str:
     basis = f"{source_class.lower()}|{_normalize_url(url)}"
     digest = hashlib.sha256(basis.encode("utf-8")).hexdigest()[:16]
     return f"src_{digest}"
+
+
+def make_artifact_id(*, company_id: str, artifact_type: str, source_id: str,
+                     canonical_key: str) -> str:
+    """Deterministic id for a structured artifact.
+
+    canonical_key is a caller-stable key (e.g. 'is|FY2025|revenue') so the same
+    underlying fact yields the same id across re-extractions.
+    """
+    if not (company_id and artifact_type and source_id and canonical_key):
+        raise ValueError("all of company_id, artifact_type, source_id, canonical_key are required")
+    basis = f"{company_id}|{artifact_type}|{source_id}|{canonical_key}"
+    digest = hashlib.sha256(basis.encode("utf-8")).hexdigest()[:16]
+    return f"art_{digest}"
