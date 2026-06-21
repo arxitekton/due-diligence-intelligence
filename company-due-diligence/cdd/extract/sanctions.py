@@ -78,6 +78,23 @@ def _null_to_none(value: str) -> str | None:
     return None if stripped == _OFAC_NULL else stripped
 
 
+# OFAC encodes alternate names inside the free-text Remarks field as
+# "a.k.a. 'NAME'", "aka NAME", "f.k.a. ...", "n.k.a. ...", separated by ';'.
+# Screening that ignores these misses entities listed only under a front/alias
+# name — a false negative, the worst failure mode for sanctions. Extract them.
+_AKA_RE = re.compile(
+    r"\b(?:a\.k\.a\.|aka|f\.k\.a\.|fka|n\.k\.a\.|nka)\b[\s:]*['\"]?([^;'\"]+?)['\"]?\s*(?:;|$)",
+    re.IGNORECASE,
+)
+
+
+def _extract_aliases(remarks: str | None) -> list[str]:
+    """Pull a.k.a./f.k.a./n.k.a. alternate names out of an OFAC Remarks string."""
+    if not remarks:
+        return []
+    return [m.strip() for m in _AKA_RE.findall(remarks) if m.strip()]
+
+
 def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
     """Parse OFAC SDN.CSV bytes into a list of entry dicts.
 
@@ -113,6 +130,7 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
                 "type": sdn_type,
                 "program": program,
                 "remarks": remarks,
+                "aliases": _extract_aliases(remarks),
             }
         )
     return entries
@@ -155,6 +173,13 @@ def screen_name(
     """
     norm_query = _normalize_name(query)
     query_tokens = set(norm_query.split())
+    # Guardrail: a single-token query (e.g. "Acme", "Gazprom") would token-subset
+    # match every entry containing that common token, flooding results with
+    # unrelated designees. Single-token queries only produce EXACT matches; partial
+    # (token-subset) matching requires >=2 query tokens so it can't fire on a lone
+    # generic word. Avoids false-positive "candidates" resting solely on agent
+    # discipline. (Exact single-token matches, e.g. a one-word legal name, still fire.)
+    partial_eligible = len(query_tokens) >= 2
 
     results: list[dict[str, Any]] = []
     for entry in entries:
@@ -171,7 +196,7 @@ def screen_name(
                 match_type = "exact"
                 break
             candidate_tokens = set(norm_candidate.split())
-            if query_tokens and query_tokens.issubset(candidate_tokens):
+            if partial_eligible and query_tokens.issubset(candidate_tokens):
                 # Don't break — an exact match on a later alias should win.
                 match_type = "partial"
 

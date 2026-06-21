@@ -34,6 +34,32 @@ def test_screen_name_exact_and_partial():
     assert screen_name("Totally Unrelated Inc", rows) == []
 
 
+def test_parser_extracts_aliases_from_remarks():
+    # OFAC encodes alternate names as "aka …" inside Remarks. The parser must
+    # surface them so alias-only listings are screenable (false-negative guard).
+    rows = parse_sdn_csv(_SDN)
+    assert rows[0]["aliases"] == ["GOOD FRONT"]
+
+
+def test_alias_matching_hits_front_name():
+    # An entity listed only under an alias/front name must still match.
+    rows = parse_sdn_csv(_SDN)
+    hits = screen_name("Good Front", rows)
+    assert len(hits) == 1
+    assert hits[0]["name"] == "BAD ACTOR LLC"
+    assert hits[0]["match_type"] == "exact"  # normalized alias equals query
+
+
+def test_single_token_query_does_not_flood_partials():
+    # A lone generic token must NOT produce token-subset "partial" candidates.
+    rows = parse_sdn_csv(_SDN)
+    assert screen_name("Acme", rows) == []   # no exact "acme"; partial suppressed
+    assert screen_name("Bad", rows) == []    # single token → no partial flood
+    # but a genuine single-token exact match still fires:
+    one = parse_sdn_csv(b'9,"GAZPROM","entity","RUSSIA-EO14024","-0-","-0-","-0-","-0-","-0-","-0-","-0-","-0-"\n')  # noqa: E501
+    assert len(screen_name("Gazprom", one)) == 1
+
+
 def test_official_lists_has_core_lists():
     assert "OFAC-SDN" in OFFICIAL_LISTS
     assert OFFICIAL_LISTS["OFAC-SDN"].startswith("https://")
