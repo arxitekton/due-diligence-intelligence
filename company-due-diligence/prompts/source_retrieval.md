@@ -55,4 +55,11 @@ Fetch raw content for every source in `discovered` status, save bytes to `raw_so
 Respect all constraints in `references/legal_and_tos.md` (robots.txt, rate limits, no login-walled content without authorization). Scripts never hit the network — only the agent fetches content. Do not fabricate content hashes.
 
 ## Hand-off
+After all retrieval/canonicalize/unavailable events are recorded, materialize the per-run source inventory (required by validation and compare_runs):
+```
+python scripts/build_source_inventory.py \
+  --company-id {slug} --run-id {run_id} --now {ISO}
+```
+This writes `structured/source_inventory.json` for the run.
+
 Extraction prompts (`evidence_extraction.md`, `product_extraction.md`, `financial_extraction.md`, `corporate_structure_extraction.md`, `market_intelligence.md`, `risk_extraction.md`, `event_extraction.md`) consume the `raw_sources/` files and the `source_registry.jsonl` to resolve `source_snapshot_id` for lineage.
