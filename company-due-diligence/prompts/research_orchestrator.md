@@ -31,6 +31,9 @@ company name (required), optional website / ticker / country / industry / aliase
    - `market_intelligence.md`
    - `risk_extraction.md`
    - `event_extraction.md`
+   - `sanctions_screening.md` (**REQUIRED** for `full_refresh` and `incremental_refresh`;
+     run after `corporate_structure_extraction.md` so the entity graph is available;
+     screen against all six official lists every run — do not reuse prior-run results)
 6. **Merge** (if financials or products present):
    ```
    python scripts/merge_artifacts.py --run-dir output/companies/{slug}/runs/{run_id}

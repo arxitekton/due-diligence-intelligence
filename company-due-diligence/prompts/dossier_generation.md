@@ -32,10 +32,30 @@ Assemble the final due-diligence dossier from CURRENT validated artifacts only, 
    | 11 | Partnerships | `partnerships` |
    | 12 | M&A & Funding | `ma_event`, `funding_event` |
    | 13 | Risks | `risk_factors`, `litigation`, `regulatory_exposure` |
-   | 14 | Recent Developments | `leadership_change`, `product_launch`, `material_development` |
-   | 15 | Data Quality Notes | `data_quality_report.json` non-fatal reporters |
-   | 16 | Change Summary Since Previous Run | `change_log.md` (if present) |
-   | 17 | Appendices | source list, artifact index |
+   | 14 | Sanctions & Compliance Exposure | `sanctions_screening`, `sanctioned_country_exposure`, `export_control_exposure`, `pep_adverse_media` |
+   | 15 | Recent Developments | `leadership_change`, `product_launch`, `material_development` |
+   | 16 | Data Quality Notes | `data_quality_report.json` non-fatal reporters |
+   | 17 | Change Summary Since Previous Run | `change_log.md` (if present) |
+   | 18 | Appendices | source list, artifact index |
+
+   **Section 14 — Sanctions & Compliance Exposure** must include the following sub-sections.
+   Every claim must cite an `artifact_id` or be tagged `[INFERENCE]`. Allegations are
+   attributed to their source and never asserted as fact.
+   - **List-screening result:** which lists were screened, the as-of date of each list version,
+     and the result (exact hits with list/programme/entry_id, partial-match candidates flagged
+     for review, or "no match on [lists] as of [dates]"). "No match" is never rendered as
+     "clean" or "not sanctioned."
+   - **Sanctioned-country / region exposure:** disclosed revenue, assets, operational entities,
+     or key suppliers/customers in Russia, Belarus, Iran, North Korea, Syria, Cuba, Crimea,
+     DNR, LNR — sourced from primary filings only; undisclosed amounts are `null`.
+   - **Russia / Belarus operations status:** exited / suspended / scaled back / continued /
+     unclear — cited to a primary filing or official press release; secondary tracker signals
+     are attributed and labelled `[SIGNAL]`.
+   - **Export-control exposure:** BIS Entity List screening result (same no-match discipline);
+     any disclosed export-control violations or pending proceedings.
+   - **PEP / adverse media:** PEPs among key principals (evidence, attributed); serious adverse
+     media — concluded actions as `evidence`, allegations as attributed `evidence` or
+     `[INFERENCE]`, never as facts.
 
 4. **Render `final_dossier.md`** — Markdown narrative with section headers. In-text citations use `[artifact_id]` format. Inferences are tagged `[INFERENCE]`.
 

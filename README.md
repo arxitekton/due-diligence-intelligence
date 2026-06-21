@@ -24,4 +24,8 @@ uv venv && uv pip install -e ".[dev]"
 python scripts/install_skill.py --skills-dir ~/.claude/skills   # activate the skill
 ```
 
-See [`company-due-diligence/README.md`](company-due-diligence/README.md) for everything else.
+Then **just ask Claude Code** in natural language — the skill auto-activates:
+
+> Do full due diligence on Acme Analytics — corporate structure, financials, products, risks, and sanctions / Russia exposure.
+
+See [`company-due-diligence/README.md`](company-due-diligence/README.md) for the full usage guide, run modes, and output layout.

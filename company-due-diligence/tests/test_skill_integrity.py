@@ -30,3 +30,14 @@ def test_skill_links_resolve():
 
 def test_skill_is_concise():
     assert len(SKILL.read_text().splitlines()) <= 200, "SKILL.md should stay concise"
+
+
+def test_readme_component_counts_match_disk():
+    """README's What's-inside counts must equal the files on disk (anti-drift)."""
+    readme = (ROOT / "README.md").read_text()
+    for label, glob in (("Prompts", "prompts/*.md"), ("References", "references/*.md")):
+        m = re.search(rf"\*\*{label}\*\*\s*\((\d+)\)", readme)
+        assert m, f"README missing a '**{label}** (N)' count"
+        claimed = int(m.group(1))
+        actual = len(list(ROOT.glob(glob)))
+        assert claimed == actual, f"README says {label} ({claimed}) but disk has {actual}"

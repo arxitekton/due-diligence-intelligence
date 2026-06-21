@@ -8,9 +8,9 @@ Sources are assigned to one of three tiers. The tier governs conflict resolution
 
 Issuer-owned or regulator-filed. Highest evidential weight. Treat as authoritative for the facts they assert; any conflict between a primary and a lower-tier source is resolved in favour of primary unless a restatement or scope mismatch applies (record via `conflict_set`).
 
-**Members:** official company website, product pages, annual reports, quarterly reports, 10-K, 10-Q, 20-F, 6-K, investor relations portal, earnings releases, earnings-call transcripts, exchange filings (SEC EDGAR, Companies House, SEDAR, ASX, etc.), regulatory filings, company registry records, government records, patent filings, trademark registrations, court filings.
+**Members:** official company website, product pages, annual reports, quarterly reports, 10-K, 10-Q, 20-F, 6-K, investor relations portal, earnings releases, earnings-call transcripts, exchange filings (SEC EDGAR, Companies House, SEDAR, ASX, etc.), regulatory filings, company registry records, government records, patent filings, trademark registrations, court filings, **sanctions lists** (OFAC SDN, OFAC Consolidated, EU Consolidated, UK OFSI Consolidated, UN Consolidated), **export-control lists** (BIS Entity List), **watchlists** (other regulator-curated risk lists).
 
-**Trust notes:** issuer-affiliated (company-owned content) or regulator-curated (exchange and government filings). Financial statements in 10-K/20-F are audited; earnings releases and transcripts are unaudited but issuer-verified. Court filings and patent records are regulator-curated public records; treat as factual for the claims they assert (not for implied interpretations).
+**Trust notes:** issuer-affiliated (company-owned content) or regulator-curated (exchange and government filings). Financial statements in 10-K/20-F are audited; earnings releases and transcripts are unaudited but issuer-verified. Court filings and patent records are regulator-curated public records; treat as factual for the claims they assert (not for implied interpretations). Sanctions and export-control lists are government/regulator-curated; treat a named list entry as factual for the listed identifiers — but apply the disambiguation rules in `references/sanctions_screening_rules.md` before asserting a match.
 
 ---
 
@@ -18,7 +18,7 @@ Issuer-owned or regulator-filed. Highest evidential weight. Treat as authoritati
 
 Third-party curated or editorially reviewed. High but not issuer-verified weight. Use to corroborate, extend, or provide context for primary evidence. Conflicts with primary sources must be recorded, not silently overwritten.
 
-**Members:** reputable financial media (Bloomberg, Reuters, FT, WSJ, Nikkei, etc.), industry research reports (Gartner, IDC, Forrester, CB Insights, PitchBook, Crunchbase, etc.), analyst commentary (sell-side research, investor letters), press releases (via PR Newswire, Globe Newswire, Business Wire — treat as issuer-proximate but not regulatory-filed), conference materials (earnings day slide decks, investor day presentations), customer case studies published on the company's site or a vendor's site, partner pages and certified partner directories.
+**Members:** reputable financial media (Bloomberg, Reuters, FT, WSJ, Nikkei, etc.), industry research reports (Gartner, IDC, Forrester, CB Insights, PitchBook, Crunchbase, etc.), analyst commentary (sell-side research, investor letters), press releases (via PR Newswire, Globe Newswire, Business Wire — treat as issuer-proximate but not regulatory-filed), conference materials (earnings day slide decks, investor day presentations), customer case studies published on the company's site or a vendor's site, partner pages and certified partner directories. **Russia/Belarus exit trackers** (Yale CELI "Leave Russia" list, KSE Institute tracker, Moral Rating Agency) are secondary curated sources — use as corroborating signals only; see `references/sanctions_screening_rules.md §7`.
 
 **Trust notes:** not issuer-affiliated (except press releases, which are issued by the company but not filed with a regulator). Not regulatory-status. Analyst estimates and media summaries may differ from filed figures — always note when a secondary figure diverges from a primary filing.
 
@@ -55,6 +55,9 @@ Behavioural or indirect evidence. Low direct evidential weight but high value fo
 | `patent` | primary | XML, PDF | yes | filed (patent office) |
 | `trademark` | primary | HTML, PDF | yes | filed (trademark office) |
 | `court_filing` | primary | PDF | varies | filed (court) |
+| `sanctions_list` | primary | CSV, XML, HTML | no | government/regulator |
+| `export_control_list` | primary | CSV, HTML | no | government/regulator |
+| `watchlist` | primary | CSV, XML, HTML | no | government/regulator |
 | `financial_media` | secondary | HTML | no | not filed |
 | `industry_report` | secondary | PDF, HTML | no | not filed |
 | `analyst_report` | secondary | PDF, HTML | no | not filed |
@@ -69,6 +72,7 @@ Behavioural or indirect evidence. Low direct evidential weight but high value fo
 | `technical_blog` | signal | HTML | yes | not filed |
 | `pricing_page` | signal | HTML | yes | not filed |
 | `documentation_portal` | signal | HTML, Markdown | yes | not filed |
+| `russia_exit_tracker` | signal | HTML, CSV | no | not filed |
 
 ---
 
