@@ -96,7 +96,7 @@ Entry point for the agent: [`SKILL.md`](SKILL.md). Deep guidance lives in `promp
 
 ---
 
-## Installation
+## Install & activate
 
 Requirements: Python ≥ 3.12 and [`uv`](https://docs.astral.sh/uv/).
 
@@ -119,10 +119,42 @@ python scripts/install_skill.py --skills-dir ~/.claude/skills
 
 ---
 
-## Quickstart
+## Using the skill
 
-The end-to-end workflow (the agent follows the `prompts/`; the commands below are the
-deterministic spine):
+This is a Claude Code **skill** — there is no command to "run." Once installed (above), it
+**auto-activates** from its `SKILL.md` description: you **just ask Claude Code in natural
+language**, and Claude drives the whole pipeline for you, writing everything under
+`output/companies/{slug}/`.
+
+**Ask Claude Code** something like:
+
+> Do **full due diligence** on **Acme Analytics** (acme.com, NASDAQ: ACME) — corporate
+> structure, financials, products, competitors, risks, and **sanctions / Russia exposure**.
+
+> **Refresh** the Acme Analytics dossier and tell me **what changed** since the last run.
+
+> **Screen Stripe** against OFAC / EU / UK sanctions lists and check **sanctioned-country exposure**.
+
+> Build a due-diligence **dossier** for OpenAI focused on **funding and M&A**.
+
+The skill fires on phrases like *due diligence*, *company profile / dossier*, *market
+intelligence*, *research &lt;company&gt;*, or refresh/compare requests. You can name a **run
+mode** (*full refresh*, *incremental*, *compare runs*, *validation only*, *dossier only*, …) and
+pass optional context (website, ticker, country, legal name, subsidiaries, research focus).
+
+Claude then: creates a run → discovers & preserves sources → extracts artifacts → **screens
+sanctions** → validates (8 gates) → renders a **cited dossier**, publishing to `latest/` only
+after validation passes. Read the result at
+`output/companies/{slug}/runs/{run_id}/final_dossier.md` (machine-readable `.json` alongside).
+
+> **Tip:** want strictly primary-source, audit-grade output? Say so — the skill never invents
+> data, cites every claim or marks it `[INFERENCE]`, and reports "no sanctions match on
+> [lists] as of [date]" rather than declaring a company "clean."
+
+### Under the hood / manual control (advanced)
+
+Claude runs the deterministic spine for you. You can also drive it directly — for scripting, CI,
+or step-by-step control. End-to-end:
 
 | Step | Command / prompt |
 |------|------------------|
@@ -136,18 +168,17 @@ deterministic spine):
 | 8. Dossier & publish | `prompts/dossier_generation.md` → `final_dossier.{md,json}` → `latest/` |
 
 ```bash
-# Create a run
+# 1. Create a run (prints run_id + company_slug)
 python scripts/create_run.py --company "Acme Analytics" --mode full_refresh
 # → run_id: 20260621T120000Z-f3e2d1   company_slug: acme-analytics
-# (create_run takes --company, --mode, --root, --token; richer inputs like
-#  website/ticker/exchange are research context for the agent, not CLI flags.)
+#   create_run takes --company, --mode, --root, --token; website/ticker/etc. are
+#   research context for the agent, not CLI flags.
 
-# Materialize the per-run source inventory from the registry
+# 5. Materialize the per-run source inventory from the registry
 python scripts/build_source_inventory.py \
-  --company-id acme-analytics --run-id 20260621T120000Z-f3e2d1 \
-  --now 2026-06-21T12:00:00Z
+  --company-id acme-analytics --run-id 20260621T120000Z-f3e2d1 --now 2026-06-21T12:00:00Z
 
-# Validate (exit code 1 on any fatal-gate failure)
+# 6. Validate (exit code 1 on any fatal-gate failure)
 python scripts/validate_outputs.py \
   --company-id acme-analytics --run-id 20260621T120000Z-f3e2d1 \
   --mode full_refresh --now 2026-06-21T12:00:00Z
