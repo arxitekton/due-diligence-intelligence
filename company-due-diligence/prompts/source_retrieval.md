@@ -43,7 +43,7 @@ Fetch raw content for every source in `discovered` status, save bytes to `raw_so
      --event-time {ISO} \
      --payload '{"canonical_hash":"...","profile_id":"...","diff_class":"..."}'
    ```
-   `diff_class` values: `new` (no prior), `unchanged`, `minor_change`, `major_change`.
+   `diff_class` values (must match the `source_inventory` schema enum): `new` (no prior canonical hash), `unchanged` (raw hash identical), `cosmetic_change` (raw differs, canonical identical), `content_change` (canonical differs), `table_change` (only table text changed), `unavailable`.
 7. After all sources are processed, log a retrieval summary: counts by status (`retrieved`, `unavailable`) and `diff_class`.
 
 ## Output contract

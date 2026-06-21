@@ -13,46 +13,45 @@ output/
         │       ├── raw_sources/                 # verbatim downloaded source files (HTML, PDF, JSON)
         │       │   ├── src_4a7f3c9e2b1d8e6f.html
         │       │   └── src_9b3e7a1f5c2d6b0e.html
-        │       ├── raw_artifacts/               # raw LLM extraction outputs before validation
-        │       │   ├── art_1a2b3c4d5e6f7a8b.json
-        │       │   └── art_2b3c4d5e6f7a8b9c.json
-        │       ├── extracted_tables/            # tabular slices ready for merging (CSV or JSON)
-        │       │   ├── financials.json
-        │       │   └── management_team.json
-        │       ├── structured/                  # merged + schema-validated structured records
-        │       │   ├── company_profile.json     # core identity, legal name, ticker, industry
-        │       │   ├── financials.json          # ARR, revenue, margins, burn — financial_artifact schema
-        │       │   ├── management_team.json     # executives with tenure and prior exits
-        │       │   └── competitors.json         # competitive landscape snapshot
-        │       ├── reports/                     # human-readable outputs generated from structured/
-        │       │   ├── final_dossier.md         # narrative summary for the analyst
-        │       │   └── data_quality_report.md   # per-field coverage, confidence, and gap flags
-        │       └── logs/
-        │           ├── run.log                  # structured JSON log for the full run
-        │           └── llm_traces.jsonl         # Langfuse-compatible LLM call traces
-        │
-        ├── final_dossier.md                     # symlink → latest run's final_dossier.md
-        ├── final_dossier.json                   # structured equivalent of the dossier (for downstream tools)
-        ├── change_log.md                        # human-readable diff across runs (new / changed / removed)
-        ├── data_quality_report.md               # symlink → latest run's data_quality_report.md
+        │       ├── raw_artifacts/               # raw extraction outputs before structuring
+        │       ├── extracted_tables/            # source-native tables preserved verbatim
+        │       ├── structured/                  # schema-validated artifacts (one JSON each)
+        │       │   ├── company_profile.json     # extracted_artifact
+        │       │   ├── financials.json          # financial_artifact schema
+        │       │   ├── management_team.json     # extracted_artifact (artifact_type=leadership)
+        │       │   ├── competitors.json         # extracted_artifact
+        │       │   ├── source_inventory.json    # DERIVED per-run inventory (build_source_inventory)
+        │       │   └── _merged.json             # merge_artifacts output (skipped as a non-artifact)
+        │       ├── reports/                     # reserved for agent-authored intermediate reports
+        │       ├── logs/
+        │       ├── run_manifest.json            # this run's manifest (incl. reproducibility block)
+        │       ├── final_dossier.md             # rendered dossier (run-dir root, NOT under reports/)
+        │       ├── final_dossier.json           # machine-readable dossier (company_dossier schema)
+        │       ├── change_log.md                # cross-run diff (compare_runs → generate_change_log)
+        │       ├── data_quality_report.md       # validate_outputs gate results (human-readable)
+        │       └── data_quality_report.json     # validate_outputs report (data_quality_report schema)
         │
         ├── source_registry.jsonl                # append-only event log of all source events (all runs)
         ├── artifact_registry.jsonl              # append-only event log of all artifact events (all runs)
-        ├── manifest.json                        # latest run_manifest (run_manifest schema)
+        ├── manifest.json                        # derived company-level current-state index
         │
-        ├── latest/                              # symlinks to every file in the most recent run
-        │   ├── structured -> ../runs/20260620T183000Z-a1b2c3/structured/
-        │   ├── reports    -> ../runs/20260620T183000Z-a1b2c3/reports/
-        │   └── logs       -> ../runs/20260620T183000Z-a1b2c3/logs/
+        ├── latest/                              # flat COPIES of the last validated run's published files
+        │   ├── final_dossier.md
+        │   ├── final_dossier.json
+        │   ├── data_quality_report.md
+        │   ├── change_log.md
+        │   ├── source_inventory.json
+        │   └── run_manifest.json
         │
-        └── history/                             # lightweight index across all runs
-            └── runs.json                        # array of {run_id, started_at, mode, artifacts_extracted}
+        └── history/                             # one published-run record per run
+            └── 20260620T183000Z-a1b2c3.json     # {run_id, published_at, passed}
 ```
 
 ## Notes
 
 - `runs/` are **write-once** after a run completes; never mutate them for reproducibility.
 - `source_registry.jsonl` and `artifact_registry.jsonl` are **append-only** across all runs.
-- `latest/` uses directory symlinks so consumers always read the current best version without hardcoding a run ID.
-- `history/runs.json` enables quick trend queries (e.g. "how many artifacts were extracted per run?") without scanning all run directories.
-- `final_dossier.json` is the machine-readable counterpart to `final_dossier.md` and is the primary input for downstream analysis pipelines.
+- `latest/` holds flat **copies** (not symlinks) of the most recent *validated* run's published files, swapped in atomically only after `validate_outputs` passes.
+- `manifest.json` and `structured/source_inventory.json` are **derived** views (regenerated from the registry), never hand-edited.
+- `history/{run_id}.json` records one entry per published run.
+- `final_dossier.json` is the machine-readable counterpart to `final_dossier.md` and the primary input for downstream pipelines.

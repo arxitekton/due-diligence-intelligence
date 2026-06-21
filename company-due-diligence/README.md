@@ -49,11 +49,10 @@ python scripts/install_skill.py   # lands in P3.7
 ```bash
 python scripts/create_run.py \
   --company "Acme Analytics" \
-  --mode full_refresh \
-  --website "https://acmeanalytics.com" \
-  --ticker "ACME" \
-  --exchange "NASDAQ"
+  --mode full_refresh
 # → run_id: 20260621T120000Z-f3e2d1   company_slug: acme-analytics
+# (create_run accepts --company, --mode, --root, --token; richer inputs such as
+#  website/ticker/exchange are provided to the agent as research context, not CLI flags.)
 ```
 
 ### Validate outputs
@@ -88,25 +87,27 @@ python scripts/validate_outputs.py \
 ```
 output/companies/{slug}/
 ├── runs/{run_id}/
-│   ├── raw_sources/          # verbatim downloaded files (HTML, PDF, JSON)
-│   ├── raw_artifacts/        # raw LLM extraction outputs before validation
-│   ├── extracted_tables/     # tabular slices (CSV / JSON) ready for merging
-│   ├── structured/           # merged + schema-validated records
-│   ├── reports/
-│   │   ├── final_dossier.md
-│   │   └── data_quality_report.md
-│   └── logs/
-│       ├── run.log           # structured JSON log
-│       └── llm_traces.jsonl  # Langfuse-compatible traces
-├── final_dossier.md          # symlink → latest run
-├── final_dossier.json        # machine-readable dossier (downstream pipelines)
-├── change_log.md             # human-readable cross-run diff
-├── data_quality_report.md    # symlink → latest run
-├── source_registry.jsonl     # append-only source event log (all runs)
-├── artifact_registry.jsonl   # append-only artifact event log (all runs)
-├── manifest.json             # latest run_manifest
-├── latest/                   # directory symlinks → most recent run subdirs
-└── history/runs.json         # lightweight cross-run index
+│   ├── raw_sources/              # verbatim downloaded files (HTML, PDF, JSON)
+│   ├── raw_artifacts/            # raw extraction outputs before structuring
+│   ├── extracted_tables/         # source-native tables preserved verbatim
+│   ├── structured/               # schema-validated artifacts (one JSON each),
+│   │   ├── *.json                #   plus source_inventory.json (derived) and
+│   │   └── _merged.json          #   _merged.json (merge output; skipped as non-artifact)
+│   ├── reports/                  # reserved for agent-authored intermediate reports
+│   ├── logs/
+│   ├── run_manifest.json         # this run's manifest (incl. reproducibility block)
+│   ├── final_dossier.md          # rendered dossier (run-dir root, not reports/)
+│   ├── final_dossier.json        # machine-readable dossier (validates company_dossier)
+│   ├── change_log.md             # cross-run diff (compare_runs → generate_change_log)
+│   ├── data_quality_report.md    # validate_outputs gate results (human-readable)
+│   └── data_quality_report.json  # validate_outputs report (machine-readable)
+├── source_registry.jsonl         # append-only source event log (all runs)
+├── artifact_registry.jsonl       # append-only artifact event log (all runs)
+├── manifest.json                 # derived company-level current-state index
+├── latest/                       # flat COPIES of the last validated run's published
+│                                 #   files (final_dossier.*, data_quality_report.*,
+│                                 #   change_log.md, source_inventory.json, run_manifest.json)
+└── history/{run_id}.json         # one published-run record per run
 ```
 
 ---
@@ -144,12 +145,12 @@ be published to `latest/` or used to generate a dossier.
 |------|-------------|
 | `schemas_valid` | Every structured artifact validates against its registered JSON Schema |
 | `referential_integrity` | All `source_id` and `artifact_id` cross-references resolve within the run |
-| `lineage_complete` | All four lineage fields non-empty on every artifact; every `fact`/`evidence` claim cited |
+| `lineage_complete` | All five lineage fields (source_snapshot_id, content_path, snippet, locator, extraction_prompt) non-empty on every artifact; every `fact`/`evidence` claim cited |
 | `id_integrity` | `artifact_id` values are unique across the run (no collision/retry duplicates) |
 | `financial_usability` | Every `financial_artifact` line item has scope, cell_locator, valid period ref, no duplicate tuples |
 | `manifest_closure` | Every path declared in `run_manifest.output_paths` exists on disk |
 | `refresh_semantics` | (incremental only) No previously-active source silently absent from current inventory |
-| `conflict_visibility` | All financial conflicts detected by `merge_financials` surfaced in `data_quality_report` |
+| `conflict_visibility` | Financial and product conflicts (`merge_financials` + `merge_products`) surfaced in `data_quality_report` |
 
 Non-fatal flags (recorded but do not block): stale sources, low-confidence extractions
 (<0.5), missing expected source classes.
