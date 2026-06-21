@@ -26,6 +26,6 @@ python scripts/install_skill.py --skills-dir ~/.claude/skills   # activate the s
 
 Then **just ask Claude Code** in natural language — the skill auto-activates:
 
-> Do full due diligence on Acme Analytics — corporate structure, financials, products, risks, and sanctions / Russia exposure.
+> Do full due diligence on Acme Analytics — corporate structure, financials, products, risks, and sanctions.
 
 See [`company-due-diligence/README.md`](company-due-diligence/README.md) for the full usage guide, run modes, and output layout.
