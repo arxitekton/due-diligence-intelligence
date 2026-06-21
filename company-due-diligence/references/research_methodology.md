@@ -25,6 +25,14 @@ Fetch the raw bytes of each discovered source and write to `runs/{run_id}/raw_so
 ### 3. Extract
 Run extraction prompts over the preserved content to produce structured artifacts (`financial_artifact`, `product_artifact`, `extracted_artifact`). Preserve source-native representations first — do not normalize during extraction. Every artifact must carry full lineage (`source_snapshot_id`, `content_path`, `locator`, `snippet`, `extraction_prompt.name+version`). Record each artifact via `scripts/update_artifact_registry.py`.
 
+**Sanctions screening** is an integral extraction step (see `prompts/sanctions_screening.md`).
+Run it after `corporate_structure_extraction.md` so the entity graph (company, subsidiaries,
+≥50%-owned affiliates, principals) is available. Screen against all six official lists
+(OFAC-SDN, OFAC-Consolidated, EU-Consolidated, UK-OFSI, UN-Consolidated, BIS-Entity-List)
+every run — do not carry forward prior-run screening results. Record the as-of date of each
+list version consulted. Source class `sanctions_list` and `export_control_list` are primary
+sources; ensure they appear in `source_registry.jsonl` with `retrieved_at` timestamps.
+
 **CRISP-DM mapping:** Data Preparation (parsing and structuring raw evidence).
 
 ### 4. Structure
@@ -76,6 +84,7 @@ For `extraction_only`, `validation_only`, and `dossier_only`, the existing `raw_
 | `pricing_page` | Monthly | High volatility; always note retrieved_at |
 | `github_repo` | Monthly | Tag and release activity is the signal |
 | `documentation_portal`, `developer_docs` | Quarterly | Slower churn than product pages |
+| `sanctions_list`, `export_control_list`, `watchlist` | Every run | Lists update on every business day — never reuse prior-run screening results; rescreen at every `full_refresh` and `incremental_refresh` |
 
 ---
 

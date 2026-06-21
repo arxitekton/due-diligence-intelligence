@@ -48,7 +48,7 @@ These are recorded in the `data_quality_report` but do not block a run. They mus
 
 **Low-confidence extractions** (`low_confidence` array): artifacts whose top-level `confidence` field is below the `low_confidence_threshold` (default 0.5). These extractions are structurally valid but the extraction model assigned low confidence to its own output. Review the source snippet and consider re-extraction with a more targeted prompt.
 
-**Missing source classes** (`missing_source_classes` array): source classes specified in `expected_primary_classes` that are absent from the current run's inventory. This flag is only raised when the caller provides an expected class list. A missing `sec_filing_10k` for a US public company is a significant gap; a missing `github_repo` for a company with no known public OSS activity may be expected.
+**Missing source classes** (`missing_source_classes` array): source classes specified in `expected_primary_classes` that are absent from the current run's inventory. This flag is only raised when the caller provides an expected class list. A missing `sec_filing_10k` for a US public company is a significant gap; a missing `github_repo` for a company with no known public OSS activity may be expected. `sanctions_list` and `export_control_list` are **expected primary source classes for every run** that includes a sanctions screening step — their absence must be flagged as a `missing_source_classes` non-fatal warning. Any dossier claim about sanctions or export-control status must cite an artifact from a `sanctions_list` or `export_control_list` source; "no match" results must record the lists screened and their as-of dates.
 
 ---
 

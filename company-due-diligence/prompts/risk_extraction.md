@@ -13,6 +13,7 @@ Extract risk factors, litigation events, and regulatory exposure from retrieved 
    - **Litigation**: matter name (if disclosed), counterparties, alleged claims, current status, disclosed financial exposure or reserve.
    - **Regulatory exposure**: regulatory bodies mentioned, open investigations, consent orders, disclosed fines or pending rulings.
    - **Operational / macro risks**: supply chain, concentration, geopolitical, cybersecurity risks as explicitly stated in primary filings.
+   > **Note:** Sanctions hits, export-control exposure, and sanctioned-country/region operational exposure are handled exclusively by `prompts/sanctions_screening.md`. Do not duplicate those extractions here; this prompt covers the company's own risk-factor and regulatory-disclosure text only.
 3. Compose one or more `extracted_artifact` documents:
    - `artifact_id`: `art_` + 16 hex chars.
    - `schema_version`: `"1.0"`.

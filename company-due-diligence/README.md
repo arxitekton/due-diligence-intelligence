@@ -18,6 +18,7 @@ Use this skill when you need to:
 - **Build a due-diligence dossier** with citations you can trust and audit.
 - **Refresh** an existing profile and **see exactly what changed** since the last run.
 - Extract a company's **corporate structure, financials, products, competitors, risks, or recent developments** with traceable evidence.
+- Screen for **sanctions exposure** (OFAC SDN/Consolidated, EU, UK OFSI, UN, BIS Entity List), **sanctioned-country / region operations** (Russia, Belarus, Iran, North Korea, Syria, Cuba, Crimea/DNR/LNR), **Russia/Belarus exit status**, export-control exposure, and PEP / adverse-media signals.
 
 It activates on phrases like *"due diligence"*, *"company profile/dossier"*, *"market
 intelligence"*, `research <company>`, or refresh/compare requests (see
@@ -62,10 +63,10 @@ artifact across all runs. `latest/` is published only after validation passes.
 |------|----------|------------------|
 | **Engine** (deterministic, network-free) | `cdd/` | identity & run lifecycle, dual-hash canonicalization + `diff_class`, append-only event-log registries, derived manifest & source inventory, run comparison + delta classification, evidentiary validation, lineage-preserving merge + conflict sets, validation-gated atomic publish, exporters |
 | **Schemas** (9) | `schemas/` | `run_manifest`, `source_registry`, `artifact_registry`, `source_inventory`, `extracted_artifact`, `financial_artifact`, `product_artifact`, `company_dossier`, `data_quality_report` (+ `conflict_set`) |
-| **Prompts** (13) | `prompts/` | orchestrator · discovery · retrieval · 6 extraction prompts (evidence, product, financial, corporate-structure, market-intel, risk, event) · validation · dossier · run comparison |
-| **References** (8) | `references/` | research methodology · source priority · data quality · anti-hallucination · financial & product extraction rules · legal/ToS · provenance & reproducibility |
+| **Prompts** (14) | `prompts/` | orchestrator · discovery · retrieval · 7 extraction prompts (evidence, product, financial, corporate-structure, market-intel, risk, event, **sanctions-screening**) · validation · dossier · run comparison |
+| **References** (9) | `references/` | research methodology · source priority · data quality · anti-hallucination · **sanctions screening rules** · financial & product extraction rules · legal/ToS · provenance & reproducibility |
 | **CLIs** (15) | `scripts/` | run lifecycle, hashing, registry updates, inventory/manifest builders, compare/change-log, validation, merge, exporters, install |
-| **Optional extraction tools** | `cdd/extract/` | HTML cleaning, PDF tables, EDGAR, SSRF-guarded HTTP fetch — lazy-loaded; absence degrades gracefully |
+| **Optional extraction tools** | `cdd/extract/` | HTML cleaning, PDF tables, EDGAR, SSRF-guarded HTTP fetch, **OFAC-SDN sanctions helper** (`cdd.extract.sanctions`) — lazy-loaded; absence degrades gracefully |
 
 The `scripts/` CLIs are thin, deterministic wrappers over the `cdd/` engine — `SKILL.md` and
 the prompts drive the agent through `scripts/`, while `cdd/` holds the testable logic.
@@ -128,7 +129,7 @@ deterministic spine):
 | 1. Create run | `scripts/create_run.py` |
 | 2. Discover sources | `prompts/source_discovery.md` → `scripts/update_source_registry.py` |
 | 3. Retrieve & hash | agent retrieval → `scripts/compute_hashes.py` |
-| 4. Extract & register | `prompts/*_extraction.md` → `scripts/update_artifact_registry.py` |
+| 4. Extract & register | `prompts/*_extraction.md` + `prompts/sanctions_screening.md` → `scripts/update_artifact_registry.py` |
 | 5. Build source inventory | `scripts/build_source_inventory.py` *(derived from the registry; required by validation & compare)* |
 | 6. Validate | `scripts/validate_outputs.py` (8 fatal gates) |
 | 7. Compare (re-runs) | `scripts/compare_runs.py` + `scripts/generate_change_log.py` |
