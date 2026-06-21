@@ -25,4 +25,5 @@ def capabilities() -> dict[str, bool]:
         "pdf_pymupdf": _have("fitz"),
         "edgar": _have("edgar"),
         "fetch": _have("httpx"),
+        "sanctions": _have("httpx"),
     }
