@@ -1,78 +1,165 @@
 # Company Due Diligence
 
-## Purpose
+A reusable, **refreshable, versioned research-corpus system** for company due diligence and
+market intelligence, packaged as a Claude Code skill.
 
-A reusable, refreshable, versioned **research corpus system** for company due-diligence and
-market-intelligence work. Each execution produces an immutable run directory containing raw
-sources, extracted artifacts, validated structured records, and a dossier — all with full
-provenance lineage. Re-runs detect, classify, and log what changed since the previous run.
-The system is designed for repeated use over a company's lifecycle, not one-shot report
-generation: registries accumulate cross-run history, `latest/` always points to the current
-best version, and tombstones prevent silent source drops.
+> **Not a one-shot report generator.** It builds an evidence corpus: it discovers and
+> *preserves* original sources, extracts artifacts with full provenance lineage, validates
+> them against evidentiary gates, and renders a dossier — then on every re-run detects,
+> classifies, and logs what changed. Every run is immutable and reproducible.
+
+---
+
+## When to use
+
+Use this skill when you need to:
+
+- **Research / profile a company** in depth from primary sources (filings, IR, registries, patents, products, pricing).
+- **Build a due-diligence dossier** with citations you can trust and audit.
+- **Refresh** an existing profile and **see exactly what changed** since the last run.
+- Extract a company's **corporate structure, financials, products, competitors, risks, or recent developments** with traceable evidence.
+
+It activates on phrases like *"due diligence"*, *"company profile/dossier"*, *"market
+intelligence"*, `research <company>`, or refresh/compare requests (see
+[`SKILL.md`](SKILL.md) for the full activation contract).
+
+**Not for:** quick one-paragraph company blurbs, real-time price quotes, or anything that
+doesn't warrant preserved, cited evidence. For those, answer directly.
+
+---
+
+## How it works
+
+The methodology is **discover → preserve → extract → structure → validate → dossier**. The
+Claude agent performs discovery, retrieval, and reasoning (guided by `prompts/`); deterministic
+Python (`cdd/`) does all bookkeeping and **never touches the network**.
+
+```mermaid
+flowchart LR
+    A([create_run]) --> B[Discover sources]
+    B --> C[Retrieve + dual-hash<br/>preserve raw bytes]
+    C --> D[Build source inventory<br/>derived from registry]
+    C --> E[Extract artifacts<br/>source-native first]
+    E --> F[Merge + conflict sets]
+    D --> G{Validate<br/>8 fatal gates}
+    F --> G
+    G -- pass --> H[Generate dossier]
+    H --> I[(Publish to latest/)]
+    G -. fail .-> Z[Fix / flag]
+    I -. next run .-> J[compare_runs<br/>+ change_log]
+    J -. deltas .-> H
+```
+
+Evidence flows one way and is never overwritten: raw bytes land in `raw_sources/`, structured
+artifacts (with lineage) in `structured/`, and append-only event logs record every source and
+artifact across all runs. `latest/` is published only after validation passes.
+
+---
+
+## What's inside
+
+| Area | Location | What it provides |
+|------|----------|------------------|
+| **Engine** (deterministic, network-free) | `cdd/` | identity & run lifecycle, dual-hash canonicalization + `diff_class`, append-only event-log registries, derived manifest & source inventory, run comparison + delta classification, evidentiary validation, lineage-preserving merge + conflict sets, validation-gated atomic publish, exporters |
+| **Schemas** (9) | `schemas/` | `run_manifest`, `source_registry`, `artifact_registry`, `source_inventory`, `extracted_artifact`, `financial_artifact`, `product_artifact`, `company_dossier`, `data_quality_report` (+ `conflict_set`) |
+| **Prompts** (13) | `prompts/` | orchestrator · discovery · retrieval · 6 extraction prompts (evidence, product, financial, corporate-structure, market-intel, risk, event) · validation · dossier · run comparison |
+| **References** (8) | `references/` | research methodology · source priority · data quality · anti-hallucination · financial & product extraction rules · legal/ToS · provenance & reproducibility |
+| **CLIs** (15) | `scripts/` | run lifecycle, hashing, registry updates, inventory/manifest builders, compare/change-log, validation, merge, exporters, install |
+| **Optional extraction tools** | `cdd/extract/` | HTML cleaning, PDF tables, EDGAR, SSRF-guarded HTTP fetch — lazy-loaded; absence degrades gracefully |
+
+The `scripts/` CLIs are thin, deterministic wrappers over the `cdd/` engine — `SKILL.md` and
+the prompts drive the agent through `scripts/`, while `cdd/` holds the testable logic.
+
+Entry point for the agent: [`SKILL.md`](SKILL.md). Deep guidance lives in `prompts/` and
+`references/` (progressive disclosure — `SKILL.md` stays short and links out).
+
+---
+
+## Design principles
+
+1. **Discover first, preserve always.** Original bytes, source-native tables, native product
+   taxonomies, and native financial line items are preserved *before* any normalization.
+2. **Schema emerges from sources.** Normalization is a separate, derived, non-destructive layer
+   (`normalized_candidate` fields); the company's real structure is never flattened away.
+3. **Full provenance.** Every structured value and every dossier claim resolves to a source
+   snapshot + cell/quote-level locator + snippet + the extraction prompt version.
+4. **Versioned & immutable.** Runs are never overwritten; only `latest/`, registries, indexes,
+   and manifests update. History is reconstructable from the event logs.
+5. **Anti-hallucination.** Facts, extracted evidence, and analysis are separated; every claim is
+   cited or tagged `[INFERENCE]`; missing data is `null`/`unknown`; conflicting sources are
+   preserved as `conflict_set`s, never silently resolved.
+6. **Deterministic bookkeeping, agent retrieval.** Scripts are pure and offline; the agent does
+   retrieval; optional `cdd/extract/` tools add reliability for PDFs/EDGAR/HTML.
+7. **Reproducible & drift-aware.** `run_manifest` pins prompt-set, schema-set, model, and tool
+   versions so `compare_runs` can separate *source* change from *extraction* and *schema* change.
 
 ---
 
 ## Installation
 
+Requirements: Python ≥ 3.12 and [`uv`](https://docs.astral.sh/uv/).
+
 ```bash
-# Core package (scripts + validation)
+cd company-due-diligence
+
+# Core engine + dev tooling (scripts, schemas, validation, tests)
 uv venv && uv pip install -e ".[dev]"
 
-# Optional extraction stack (PDF, HTML, EDGAR)
+# Optional: extraction stack (PDF, HTML, EDGAR, hardened fetch)
 uv pip install -e ".[extract]"
 ```
 
-Activate as a Claude Code skill (symlinks into `~/.claude/skills/`):
+Activate as a Claude Code skill (idempotent symlink into your skills directory; never deletes a
+real directory):
 
 ```bash
-python scripts/install_skill.py   # lands in P3.7
+python scripts/install_skill.py --skills-dir ~/.claude/skills
 ```
 
 ---
 
-## Usage Examples
+## Quickstart
 
-### 7-Step Workflow
+The end-to-end workflow (the agent follows the `prompts/`; the commands below are the
+deterministic spine):
 
-| Step | Script / Prompt |
-|------|----------------|
+| Step | Command / prompt |
+|------|------------------|
 | 1. Create run | `scripts/create_run.py` |
 | 2. Discover sources | `prompts/source_discovery.md` → `scripts/update_source_registry.py` |
 | 3. Retrieve & hash | agent retrieval → `scripts/compute_hashes.py` |
-| 4. Extract & register | `prompts/{evidence,product,financial,...}_extraction.md` → `scripts/update_artifact_registry.py` |
-| 5. Validate | `scripts/validate_outputs.py` |
-| 6. Compare runs | `scripts/compare_runs.py` + `scripts/generate_change_log.py` |
-| 7. Dossier | `prompts/dossier_generation.md` |
-
-### Create a run
+| 4. Extract & register | `prompts/*_extraction.md` → `scripts/update_artifact_registry.py` |
+| 5. Build source inventory | `scripts/build_source_inventory.py` *(derived from the registry; required by validation & compare)* |
+| 6. Validate | `scripts/validate_outputs.py` (8 fatal gates) |
+| 7. Compare (re-runs) | `scripts/compare_runs.py` + `scripts/generate_change_log.py` |
+| 8. Dossier & publish | `prompts/dossier_generation.md` → `final_dossier.{md,json}` → `latest/` |
 
 ```bash
-python scripts/create_run.py \
-  --company "Acme Analytics" \
-  --mode full_refresh
+# Create a run
+python scripts/create_run.py --company "Acme Analytics" --mode full_refresh
 # → run_id: 20260621T120000Z-f3e2d1   company_slug: acme-analytics
-# (create_run accepts --company, --mode, --root, --token; richer inputs such as
-#  website/ticker/exchange are provided to the agent as research context, not CLI flags.)
-```
+# (create_run takes --company, --mode, --root, --token; richer inputs like
+#  website/ticker/exchange are research context for the agent, not CLI flags.)
 
-### Validate outputs
-
-```bash
-python scripts/validate_outputs.py \
-  --company-id acme-analytics \
-  --run-id 20260621T120000Z-f3e2d1 \
-  --mode full_refresh \
+# Materialize the per-run source inventory from the registry
+python scripts/build_source_inventory.py \
+  --company-id acme-analytics --run-id 20260621T120000Z-f3e2d1 \
   --now 2026-06-21T12:00:00Z
+
+# Validate (exit code 1 on any fatal-gate failure)
+python scripts/validate_outputs.py \
+  --company-id acme-analytics --run-id 20260621T120000Z-f3e2d1 \
+  --mode full_refresh --now 2026-06-21T12:00:00Z
 ```
 
 ---
 
-## Run Modes
+## Run modes
 
 | Mode | Description |
 |------|-------------|
 | `full_refresh` | Rediscover and re-retrieve all sources; full extraction pipeline |
-| `incremental_refresh` | Retrieve only changed or new sources (hash-gated); update affected artifacts |
+| `incremental_refresh` | Retrieve only changed/new sources (hash-gated); update affected artifacts |
 | `source_discovery_only` | Discover and register sources; no retrieval or extraction |
 | `source_retrieval_only` | Retrieve and hash registered sources; no extraction |
 | `extraction_only` | (Re-)extract from already-retrieved raw sources |
@@ -82,7 +169,7 @@ python scripts/validate_outputs.py \
 
 ---
 
-## Output Structure
+## Output structure
 
 ```
 output/companies/{slug}/
@@ -112,100 +199,81 @@ output/companies/{slug}/
 
 ---
 
-## Refresh Strategy
+## Data quality & validation gates
 
-**Full refresh** rediscovers and re-retrieves every source from scratch. Use for first runs,
-forced checkpoints (at least every 6 months for active companies), or when source topology
-may have changed significantly.
-
-**Incremental refresh** retrieves only sources where `diff_class` indicates the content hash
-has changed since last retrieval. Unmodified sources reuse prior raw files. Artifacts are
-re-extracted only for sources that changed.
-
-**Tombstones / no silent drops**: the `refresh_semantics` fatal gate enforces that every
-source marked `active` or `reappeared` in the registry appears in the current run's
-inventory. A source that was previously tracked and is now absent without an explicit
-`unavailable` marker fails validation. This prevents discovery drift from silently eroding
-coverage.
-
-**Change classification** (`compare_runs`): each delta is classified as a source-level change
-(new/dropped/unavailable source), extraction-level change (artifact content diff for the same
-source), or schema-level change (field added/removed/type-changed in a structured record).
-The output is a `change_log.md` with human-readable delta summaries and a machine-readable
-diff payload.
-
----
-
-## Data Quality Rules
-
-Eight fatal gates run via `scripts/validate_outputs.py`. A run that fails any gate must not
+Eight **fatal** gates run via `scripts/validate_outputs.py`. A run that fails any gate must not
 be published to `latest/` or used to generate a dossier.
 
 | Gate | Description |
 |------|-------------|
-| `schemas_valid` | Every structured artifact validates against its registered JSON Schema |
-| `referential_integrity` | All `source_id` and `artifact_id` cross-references resolve within the run |
-| `lineage_complete` | All five lineage fields (source_snapshot_id, content_path, snippet, locator, extraction_prompt) non-empty on every artifact; every `fact`/`evidence` claim cited |
-| `id_integrity` | `artifact_id` values are unique across the run (no collision/retry duplicates) |
-| `financial_usability` | Every `financial_artifact` line item has scope, cell_locator, valid period ref, no duplicate tuples |
+| `schemas_valid` | Every structured artifact validates against its registered JSON Schema (degraded/no-`jsonschema` validation fails in strict modes) |
+| `referential_integrity` | All `source_id` / `artifact_id` / citation cross-references resolve within the run |
+| `lineage_complete` | All five lineage fields (source_snapshot_id, content_path, snippet, locator, extraction_prompt) present; every `fact`/`evidence` claim cited |
+| `id_integrity` | `artifact_id` values are unique across the run |
+| `financial_usability` | Every financial line item has scope, cell_locator, a valid period ref with currency + unit_scale; no duplicate tuples |
 | `manifest_closure` | Every path declared in `run_manifest.output_paths` exists on disk |
-| `refresh_semantics` | (incremental only) No previously-active source silently absent from current inventory |
-| `conflict_visibility` | Financial and product conflicts (`merge_financials` + `merge_products`) surfaced in `data_quality_report` |
+| `refresh_semantics` | (incremental only) No previously-active source silently absent from the current inventory |
+| `conflict_visibility` | Financial **and** product conflicts (`merge_financials` + `merge_products`) surfaced in `data_quality_report` |
 
-Non-fatal flags (recorded but do not block): stale sources, low-confidence extractions
-(<0.5), missing expected source classes.
+Non-fatal flags (recorded, do not block): stale sources, low-confidence extractions (<0.5),
+missing expected source classes.
 
-Full rule definitions: [`references/data_quality_rules.md`](references/data_quality_rules.md)  
-Anti-hallucination constraints: [`references/anti_hallucination_rules.md`](references/anti_hallucination_rules.md)
-
----
-
-## Limitations
-
-- **Agent-driven retrieval**: scripts never hit the network. The Claude Code agent performs
-  all HTTP retrieval. Autonomous crawling requires an active agent session.
-- **ToS / robots compliance**: retrieval follows [`references/legal_and_tos.md`](references/legal_and_tos.md).
-  No paywall bypass; paywalled sources are logged as `unavailable`.
-- **Extraction tools are optional**: the `[extract]` extra (PDF, HTML, EDGAR helpers)
-  improves reliability but is not required. Without it, the agent performs extraction
-  directly from raw content.
-- **`manifest_closure` checks existence, not content hash**: the gate verifies that declared
-  output paths exist on disk but does not recompute file hashes at validation time. This is a
-  documented gap; hash recomputation is deferred to a future gate version.
+Full rules: [`references/data_quality_rules.md`](references/data_quality_rules.md) ·
+[`references/anti_hallucination_rules.md`](references/anti_hallucination_rules.md)
 
 ---
 
-## Recommended Workflow
+## Refresh & change tracking
 
-### First run
+- **Full refresh** rediscovers and re-retrieves everything — use for first runs, forced
+  checkpoints (≥ every 6 months for active companies), or major topology changes.
+- **Incremental refresh** re-retrieves only sources whose canonical hash changed (`diff_class`);
+  unchanged sources reuse prior raw files; only affected artifacts are re-extracted.
+- **No silent drops:** the `refresh_semantics` gate fails if a previously-active source vanishes
+  from the inventory without an explicit `unavailable` marker.
+- **Delta classification:** `compare_runs` separates *source* deltas (new/changed/unavailable)
+  from *extraction* and *schema* deltas using the `run_manifest.reproducibility` block, so a
+  prompt or model change is never mistaken for a real company change. See
+  [`references/provenance_and_reproducibility.md`](references/provenance_and_reproducibility.md).
 
-1. `create_run.py --mode full_refresh` — note `run_id` and `company_slug`
-2. Run `prompts/source_discovery.md`; register each source via `update_source_registry.py`
-3. Retrieve raw files (agent); run `compute_hashes.py`
-4. Run extraction prompts in order: evidence → product → financial → corporate structure → risk → events
-5. Register each artifact via `update_artifact_registry.py`
-6. `validate_outputs.py` — fix any fatal gate failures; re-run in `validation_only` mode
-7. `prompts/dossier_generation.md` → render `final_dossier.{md,json}`
+---
 
-### Refresh run
+## Limitations & known gaps
 
-1. `create_run.py --mode incremental_refresh`
-2. Retrieve changed/new sources only; run `compute_hashes.py`
-3. Re-extract artifacts for changed sources
-4. `validate_outputs.py` — confirm `refresh_semantics` gate passes
-5. `compare_runs.py` + `generate_change_log.py` to classify deltas
-6. `prompts/dossier_generation.md` — render updated dossier from current-run artifacts only
+- **Agent-driven retrieval.** Scripts never hit the network; the Claude agent performs all
+  retrieval. Autonomous crawling requires an active agent session.
+- **ToS / robots compliance.** Retrieval follows [`references/legal_and_tos.md`](references/legal_and_tos.md);
+  no paywall/auth bypass — paywalled sources are logged as `unavailable`.
+- **Optional extraction tools.** Without the `[extract]` extra the agent extracts directly from
+  raw content; `cdd/extract/` simply improves reliability.
+- **`manifest_closure` checks existence, not content-hash recompute** (no path↔hash map yet — documented gap).
+- **`fetch` SSRF guard has a residual DNS-rebinding/TOCTOU window** — pre-flight validation +
+  per-redirect re-check block the common cases; full mitigation = pinning the connection to the
+  validated IP. Documented in `cdd/extract/fetch.py`.
 
 ---
 
 ## Examples
 
-Working examples live in [`examples/`](examples/):
+Working, schema-valid examples in [`examples/`](examples/):
 
 | File | Contents |
 |------|----------|
 | `example_input.md` | Annotated input spec for a first run |
 | `example_output_structure.md` | Annotated `output/` directory tree |
+| `example_run_manifest.json` | Sample run manifest |
 | `example_source_registry.jsonl` | Sample source registry events |
 | `example_artifact_registry.jsonl` | Sample artifact registry events |
-| `example_run_manifest.json` | Sample run manifest |
+
+---
+
+## Development
+
+```bash
+uv run pytest --cov=cdd     # unit + integration tests with coverage
+uv run ruff check .         # lint
+uv run pyright cdd scripts  # strict type checking
+```
+
+The engine is fully test-driven; structured artifacts and registry events are validated against
+the JSON Schemas in `schemas/`.

@@ -1,6 +1,6 @@
 ---
 name: company-due-diligence
-description: Exhaustive, refreshable, versioned company due-diligence and market-intelligence research. Use when asked to research/profile a company, build a due-diligence dossier, track what changed since a prior run, or extract a company's products, financials, corporate structure, competitors, risks, or recent developments from primary sources. Triggers on "due diligence", "company profile/dossier", "market intelligence", "research <company>", or refresh/compare requests.
+description: Exhaustive, refreshable, versioned company due-diligence and market-intelligence research. Use when asked to research/profile a company, build a due-diligence dossier, track what changed since a prior run, or extract a company's products, financials, corporate structure, competitors, risks, or recent developments from primary sources. Triggers on "due diligence", "company profile/dossier", "market intelligence", "research <company>", or refresh/compare requests. For in-depth, cited research that warrants preserved evidence — not quick one-paragraph company blurbs or live price quotes.
 ---
 
 # Company Due Diligence
@@ -14,14 +14,16 @@ Activate when the user asks to research/profile/do due-diligence on a company, r
 `full_refresh` · `incremental_refresh` · `source_discovery_only` · `source_retrieval_only` · `extraction_only` · `validation_only` · `dossier_only` · `compare_runs`.
 
 ## Workflow
+Run-relative paths below are under `output/companies/{company_slug}/`.
+
 1. **Create run** — `python scripts/create_run.py --company "<NAME>" --mode <MODE>`. Note the `run_id` + `company_slug`.
 2. **Discover** — follow `prompts/source_discovery.md`; prioritize sources per `references/source_priority_rules.md`. Record each as a registry event (`scripts/update_source_registry.py`).
 3. **Retrieve & preserve** — save raw bytes to `runs/{run_id}/raw_sources/`; hash with `scripts/compute_hashes.py` (raw + canonical → `diff_class`). Respect `references/legal_and_tos.md`.
-4. **Extract** — per `prompts/{evidence,product,financial,corporate_structure,risk,event}_extraction.md`; preserve source-native tables/taxonomies/line-items FIRST. Write structured artifacts (with full lineage) to `runs/{run_id}/structured/`; record `scripts/update_artifact_registry.py`.
-4b. **Build source inventory** — `python scripts/build_source_inventory.py --company-id <slug> --run-id <id> --now <ISO>` (consumed by validation & compare_runs; writes `structured/source_inventory.json`).
-5. **Validate** — `python scripts/validate_outputs.py --company-id <slug> --run-id <id> --mode <MODE> --now <T>` (evidentiary gates). Fix or flag before publishing.
-6. **Compare (re-runs)** — `scripts/compare_runs.py` + `scripts/generate_change_log.py`.
-7. **Dossier** — follow `prompts/dossier_generation.md`; render `final_dossier.{md,json}` from CURRENT validated artifacts only. Publish to `latest/` only after validation passes.
+4. **Extract** — per `prompts/{evidence,product,financial,corporate_structure,risk,event}_extraction.md` and `prompts/market_intelligence.md`; preserve source-native tables/taxonomies/line-items FIRST. Write structured artifacts (with full lineage) to `runs/{run_id}/structured/`; record `scripts/update_artifact_registry.py`.
+5. **Build source inventory** — `python scripts/build_source_inventory.py --company-id <slug> --run-id <id> --now <ISO>` (derived from the registry; required by validation & compare_runs; writes `structured/source_inventory.json`).
+6. **Validate** — `python scripts/validate_outputs.py --company-id <slug> --run-id <id> --mode <MODE> --now <T>` (evidentiary gates). Fix or flag before publishing.
+7. **Compare (re-runs)** — `scripts/compare_runs.py` + `scripts/generate_change_log.py`.
+8. **Dossier** — follow `prompts/dossier_generation.md`; render `final_dossier.{md,json}` from CURRENT validated artifacts only. Publish to `latest/` only after validation passes.
 
 ## Hard rules
 - **Never invent data.** Missing → `null`/`unknown`. See `references/anti_hallucination_rules.md`.
