@@ -334,3 +334,172 @@ def test_conflict_visibility_surfaces_conflicts(tmp_path: Path):
     report = validate_run(paths, mode="full_refresh", now=_now())
     assert len(report["conflicts"]) > 0, "Expected conflicts to be surfaced"
     assert _gate(report, "conflict_visibility")["passed"] is True
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: malformed dossier (sections not a list / claim is bare string)
+# ---------------------------------------------------------------------------
+
+def _build_with_dossier_raw(tmp: Path, dossier_raw: object) -> OutputPaths:
+    """Build a run with an arbitrary (possibly malformed) dossier."""
+    paths = OutputPaths(root=tmp, company_slug="acme-corp", run_id="20260620T183000Z-a1b2c3")
+    (paths.run_dir / "structured").mkdir(parents=True)
+    (paths.run_dir / "structured" / "source_inventory.json").write_text(
+        json.dumps(_inventory()), encoding="utf-8"
+    )
+    structured = paths.run_dir / "structured"
+    art = _leadership()
+    (structured / "art_0.json").write_text(json.dumps(art), encoding="utf-8")
+    (paths.run_dir / "final_dossier.json").write_text(
+        json.dumps(dossier_raw), encoding="utf-8"
+    )
+    (paths.run_dir / "run_manifest.json").write_text(
+        json.dumps({"run_id": "20260620T183000Z-a1b2c3", "company_id": "acme-corp",
+                    "output_paths": []}),
+        encoding="utf-8",
+    )
+    return paths
+
+
+def test_malformed_dossier_sections_not_list_does_not_raise(tmp_path: Path):
+    """Fix 2: dossier with sections as a string must not raise; report passes/fails gracefully."""
+    dossier = {"sections": "notalist"}
+    paths = _build_with_dossier_raw(tmp_path, dossier)
+    report = validate_run(paths, mode="full_refresh", now=_now())
+    assert isinstance(report["passed"], bool)
+
+
+def test_malformed_dossier_claim_as_bare_string_does_not_raise(tmp_path: Path):
+    """Fix 2: claims list containing a bare string must not raise."""
+    dossier = {
+        "sections": [{"key": "s1", "title": "S1", "claims": ["bare string claim"]}]
+    }
+    paths = _build_with_dossier_raw(tmp_path, dossier)
+    report = validate_run(paths, mode="full_refresh", now=_now())
+    assert isinstance(report["passed"], bool)
+
+
+# ---------------------------------------------------------------------------
+# Fix 6: conflict_visibility also surfaces product conflicts
+# ---------------------------------------------------------------------------
+
+def _product_artifact(
+    artifact_id: str,
+    source_id: str,
+    lifecycle: str,
+) -> dict:
+    """Minimal product_artifact for conflict testing."""
+    return {
+        "artifact_id": artifact_id,
+        "schema_version": "1",
+        "company_id": "acme-corp",
+        "run_id": "20260620T183000Z-a1b2c3",
+        "source_id": source_id,
+        "lineage": {
+            "source_snapshot_id": "snap_1",
+            "content_path": "raw_sources/products.html",
+            "locator": {"section": "products"},
+            "snippet": "Acme Cloud - GA",
+            "extraction_prompt": {"name": "product_extraction", "version": "1"},
+        },
+        "source_context": {
+            "document_title": "Products",
+            "section_path": [],
+            "source_native_statement_name": None,
+            "table_id": None,
+            "page": None,
+        },
+        "entities": [{
+            "entity_id": "ent_1",
+            "entity_type": "platform",
+            "source_native_name": "Acme Cloud",
+            "aliases": [],
+            "source_native_category_path": [],
+            "parent_entity_id": None,
+            "display_order": 1,
+            "description_quote": None,
+            "lifecycle_status": lifecycle,
+            "geography_scope": [],
+            "pricing_observations": [],
+            "attributes": [],
+            "normalized_candidate": {"family": "cloud_platform", "confidence": 0.9},
+        }],
+        "notes": None,
+    }
+
+
+def _build_product_run(tmp: Path, artifacts: list[dict]) -> OutputPaths:
+    paths = OutputPaths(root=tmp, company_slug="acme-corp", run_id="20260620T183000Z-a1b2c3")
+    (paths.run_dir / "structured").mkdir(parents=True)
+    structured = paths.run_dir / "structured"
+    # Use a product source_id that matches the inventory
+    inv = {
+        "company_id": "acme-corp",
+        "run_id": "20260620T183000Z-a1b2c3",
+        "generated_at": "2026-06-20T18:30:00Z",
+        "sources": [
+            {
+                "source_id": "src_0000000000000001",
+                "url": "https://e/products",
+                "source_class": "website",
+                "source_priority": "primary",
+                "title": None,
+                "publication_date": None,
+                "retrieved_at": "2026-06-20T18:30:00Z",
+                "first_seen_at": "2026-06-20T18:30:00Z",
+                "last_seen_at": "2026-06-20T18:30:00Z",
+                "content_hash": "0" * 64,
+                "retrieval_status": "ok",
+                "diff_class": "unchanged",
+                "notes": None,
+            },
+            {
+                "source_id": "src_0000000000000002",
+                "url": "https://e/products2",
+                "source_class": "website",
+                "source_priority": "primary",
+                "title": None,
+                "publication_date": None,
+                "retrieved_at": "2026-06-20T18:30:00Z",
+                "first_seen_at": "2026-06-20T18:30:00Z",
+                "last_seen_at": "2026-06-20T18:30:00Z",
+                "content_hash": "1" * 64,
+                "retrieval_status": "ok",
+                "diff_class": "unchanged",
+                "notes": None,
+            },
+        ],
+    }
+    (structured / "source_inventory.json").write_text(json.dumps(inv), encoding="utf-8")
+    for i, art in enumerate(artifacts):
+        (structured / f"prod_{i}.json").write_text(json.dumps(art), encoding="utf-8")
+    dos = {
+        "run_id": "20260620T183000Z-a1b2c3", "company_id": "acme-corp",
+        "research_date": "2026-06-20T18:30:00Z",
+        "retrieval_window": {"from": "2026-06-01T00:00:00Z", "to": "2026-06-20T18:30:00Z"},
+        "counts": {"sources_discovered": 2, "sources_used": 2,
+                   "sources_changed": 0, "sources_unavailable": 0},
+        "known_gaps": [], "confidence_summary": "medium",
+        "sections": [],
+    }
+    (paths.run_dir / "final_dossier.json").write_text(json.dumps(dos), encoding="utf-8")
+    (paths.run_dir / "run_manifest.json").write_text(
+        json.dumps({"run_id": "20260620T183000Z-a1b2c3", "company_id": "acme-corp",
+                    "output_paths": []}),
+        encoding="utf-8",
+    )
+    return paths
+
+
+def test_conflict_visibility_surfaces_product_conflicts(tmp_path: Path):
+    """Fix 6: product lifecycle disagreement must appear in report['conflicts']."""
+    art1 = _product_artifact(
+        "art_0000000000000p01", "src_0000000000000001", lifecycle="ga"
+    )
+    art2 = _product_artifact(
+        "art_0000000000000p02", "src_0000000000000002", lifecycle="deprecated"
+    )
+    paths = _build_product_run(tmp_path, [art1, art2])
+    report = validate_run(paths, mode="full_refresh", now=_now())
+    assert len(report["conflicts"]) > 0, "Expected product conflicts to be surfaced"
+    assert _gate(report, "conflict_visibility")["passed"] is True

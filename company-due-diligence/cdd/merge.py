@@ -47,6 +47,9 @@ def merge_financials(artifacts: list[dict[str, Any]]) -> dict[str, Any]:
             if normalized_candidate is None:
                 continue
 
+            if li.get("value_numeric") is None:
+                continue
+
             period_id: str = str(li["column_ref"])
             period = period_lookup.get(period_id)
             if period is None:

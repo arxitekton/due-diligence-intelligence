@@ -88,18 +88,21 @@ def compare_runs(company_dir: Path, from_run: str, to_run: str) -> RunDiff:
     sources_added = sorted(to_ids - from_ids)
     sources_removed = sorted(from_ids - to_ids)
 
+    sources_unavailable = sorted(
+        sid for sid, src in to_sources.items()
+        if str(src.get("retrieval_status", "")) == "unavailable"
+    )
+    unavailable_set: set[str] = set(sources_unavailable)
+
     sources_changed: list[dict[str, str]] = []
     for sid in sorted(from_ids & to_ids):
+        if sid in unavailable_set:
+            continue
         from_src = from_sources[sid]
         to_src = to_sources[sid]
         if str(from_src.get("content_hash", "")) != str(to_src.get("content_hash", "")):
             diff_class = str(to_src.get("diff_class") or "content_change")
             sources_changed.append({"source_id": sid, "diff_class": diff_class})
-
-    sources_unavailable = sorted(
-        sid for sid, src in to_sources.items()
-        if str(src.get("retrieval_status", "")) == "unavailable"
-    )
 
     from_repro = dict[str, Any](from_manifest.get("reproducibility", {}))
     to_repro = dict[str, Any](to_manifest.get("reproducibility", {}))

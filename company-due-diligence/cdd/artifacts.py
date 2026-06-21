@@ -70,6 +70,16 @@ def lineage_ok(doc: dict[str, Any]) -> bool:
     return True
 
 
+def is_artifact_file(path: Path) -> bool:
+    """Return True iff *path* should be treated as an artifact (not a meta-file).
+
+    Excludes:
+    - ``source_inventory.json`` (inventory file, not an artifact)
+    - Any filename starting with ``_`` (internal/merged outputs like ``_merged.json``)
+    """
+    return path.name != "source_inventory.json" and not path.name.startswith("_")
+
+
 def referenced_source_ids(doc: dict[str, Any]) -> set[str]:
     """Return ``{doc["source_id"]}`` if present and truthy, else an empty set."""
     source_id = doc.get("source_id")

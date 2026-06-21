@@ -23,6 +23,6 @@ def capabilities() -> dict[str, bool]:
         "html_trafilatura": _have("trafilatura"),
         "pdf": _have("pdfplumber"),
         "pdf_pymupdf": _have("fitz"),
-        "edgar": _have("edgartools"),
+        "edgar": _have("edgar"),
         "fetch": _have("httpx"),
     }

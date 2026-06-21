@@ -7,6 +7,7 @@ full validation is mandatory.
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
@@ -54,6 +55,14 @@ def _structural_check(doc: object, schema: dict[str, Any]) -> list[str]:
             errors.append(f"{key}: {data[key]!r} not in enum")
         if sub.get("const") is not None and data[key] != sub["const"]:
             errors.append(f"{key}: {data[key]!r} != const {sub['const']!r}")
+        pattern: Any = sub.get("pattern")
+        if (
+            pattern is not None
+            and sub.get("type") == "string"
+            and isinstance(data[key], str)
+            and not re.match(pattern, data[key])
+        ):
+            errors.append(f"{key}: {data[key]!r} does not match pattern {pattern!r}")
     return errors
 
 

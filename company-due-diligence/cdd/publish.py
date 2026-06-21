@@ -15,6 +15,8 @@ _RUN_DIR_FILES = (
     "final_dossier.md",
     "final_dossier.json",
     "data_quality_report.md",
+    "data_quality_report.json",
+    "run_manifest.json",
     "change_log.md",
 )
 

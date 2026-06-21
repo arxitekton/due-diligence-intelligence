@@ -71,3 +71,23 @@ def test_missing_inventory_raises(tmp_path: Path):
     cdir = tmp_path / "companies" / "acme-corp"
     with pytest.raises(FileNotFoundError):
         compare_runs(cdir, "runA", "runB")
+
+
+def test_changed_and_unavailable_not_double_counted(tmp_path: Path):
+    """Fix 8: a source whose hash changed AND is unavailable in to_run must appear
+    only in sources_unavailable, not in sources_changed."""
+    cdir = tmp_path / "companies" / "acme-corp"
+    sid = "src_0000000000000001"
+    _write_run(cdir, "runA", [_src(sid, "old_hash")], _repro())
+    _write_run(
+        cdir,
+        "runB",
+        [_src(sid, "new_hash", status="unavailable", diff="content_change")],
+        _repro(),
+    )
+    d = compare_runs(cdir, "runA", "runB")
+    assert sid in d.sources_unavailable
+    changed_ids = [s["source_id"] for s in d.sources_changed]
+    assert sid not in changed_ids, (
+        f"{sid} must not appear in sources_changed when it is also unavailable"
+    )
