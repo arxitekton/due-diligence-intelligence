@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from cdd.artifacts import artifact_kind, iter_structured  # noqa: E402
+from cdd.artifacts import artifact_kind, is_artifact_file, iter_structured  # noqa: E402
 from cdd.merge import merge_financials, merge_products  # noqa: E402
 
 
@@ -23,7 +23,9 @@ def main() -> int:
     financials: list[dict[str, object]] = []
     products: list[dict[str, object]] = []
 
-    for _path, doc in iter_structured(run_dir):
+    for path, doc in iter_structured(run_dir):
+        if not is_artifact_file(path):
+            continue
         kind = artifact_kind(doc)
         if kind == "financial":
             financials.append(doc)

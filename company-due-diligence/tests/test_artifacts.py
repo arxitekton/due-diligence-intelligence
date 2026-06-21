@@ -3,6 +3,7 @@ from pathlib import Path
 
 from cdd.artifacts import (
     artifact_kind,
+    is_artifact_file,
     iter_structured,
     lineage_ok,
     referenced_source_ids,
@@ -64,3 +65,16 @@ def test_lineage_ok_false_when_no_lineage():
 def test_referenced_source_ids():
     assert referenced_source_ids(_doc()) == {"src_0123456789abcdef"}
     assert referenced_source_ids({"value": {}}) == set()
+
+
+# Fix 4: is_artifact_file
+def test_is_artifact_file_excludes_source_inventory():
+    assert is_artifact_file(Path("structured/source_inventory.json")) is False
+
+
+def test_is_artifact_file_excludes_underscore_prefixed():
+    assert is_artifact_file(Path("structured/_merged.json")) is False
+
+
+def test_is_artifact_file_includes_normal_artifact():
+    assert is_artifact_file(Path("structured/leadership.json")) is True

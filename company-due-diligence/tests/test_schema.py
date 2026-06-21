@@ -1,5 +1,5 @@
 
-from cdd.schema import ValidationResult, load_schema, validate
+from cdd.schema import ValidationResult, _structural_check, load_schema, validate
 
 
 def _valid_run_manifest() -> dict:
@@ -69,3 +69,33 @@ def test_source_event_schema_roundtrip():
         "payload": {"url": "https://example.com", "source_class": "ir"},
     }
     assert validate(event, "source_registry").ok
+
+
+# Fix 7: _structural_check honors `pattern` in the no-jsonschema fallback
+def _valid_source_event() -> dict:
+    return {
+        "event_id": "evt_0001",
+        "event_time": "2026-06-20T18:30:00Z",
+        "run_id": "20260620T183000Z-a1b2c3",
+        "entity_type": "source",
+        "entity_id": "src_0123456789abcdef",
+        "event_type": "discovered",
+        "payload": {},
+    }
+
+
+def test_structural_check_pattern_fails_on_malformed_event_time():
+    """Fix 7: malformed event_time must produce a pattern error in structural fallback."""
+    doc = _valid_source_event()
+    doc["event_time"] = "NOT-A-DATE"
+    schema = load_schema("source_registry")
+    errors = _structural_check(doc, schema)
+    assert any("event_time" in e for e in errors), f"Expected event_time error, got: {errors}"
+
+
+def test_structural_check_pattern_passes_on_valid_z_timestamp():
+    """Fix 7: valid Z-timestamp must not produce a pattern error in structural fallback."""
+    doc = _valid_source_event()
+    schema = load_schema("source_registry")
+    errors = _structural_check(doc, schema)
+    assert not any("event_time" in e for e in errors), f"Unexpected event_time error: {errors}"

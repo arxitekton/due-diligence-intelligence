@@ -12,8 +12,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
-from cdd.artifacts import artifact_kind, iter_structured, lineage_ok
-from cdd.merge import merge_financials
+from cdd.artifacts import artifact_kind, is_artifact_file, iter_structured, lineage_ok
+from cdd.merge import merge_financials, merge_products
 from cdd.paths import OutputPaths
 from cdd.registry import derive_source_state
 from cdd.schema import validate
@@ -63,9 +63,7 @@ def _collect_artifacts(
     """Return artifact files, skipping source_inventory.json and _-prefixed names."""
     results: list[tuple[Path, dict[str, Any]]] = []
     for p, doc in iter_structured(paths.run_dir):
-        if p.name == "source_inventory.json":
-            continue
-        if p.name.startswith("_"):
+        if not is_artifact_file(p):
             continue
         results.append((p, doc))
     return results
@@ -120,16 +118,29 @@ def _gate_referential_integrity(
     dossier_path = run_dir / "final_dossier.json"
     dossier = _load_json(dossier_path)
     if dossier is not None:
-        sections: list[Any] = dossier.get("sections", [])
-        for section in sections:
-            claims: list[Any] = section.get("claims", [])
-            for claim in claims:
-                citations: list[Any] = claim.get("citations", [])
-                for cit in citations:
-                    if isinstance(cit, str) and cit not in artifact_ids:
-                        dangling.append(
-                            f"dossier claim citation {cit!r} not in artifact set"
-                        )
+        sections_raw: Any = dossier.get("sections", [])
+        if not isinstance(sections_raw, list):
+            dangling.append("dossier sections is not a list (malformed dossier)")
+        else:
+            for section_item in cast("list[Any]", sections_raw):
+                if not isinstance(section_item, dict):
+                    continue
+                section_d = cast("dict[str, Any]", section_item)
+                claims_raw: Any = section_d.get("claims", [])
+                if not isinstance(claims_raw, list):
+                    continue
+                for claim_item in cast("list[Any]", claims_raw):
+                    if not isinstance(claim_item, dict):
+                        continue
+                    claim_d = cast("dict[str, Any]", claim_item)
+                    raw_citations: Any = claim_d.get("citations", [])
+                    if not isinstance(raw_citations, list):
+                        continue
+                    for cit in cast("list[Any]", raw_citations):
+                        if isinstance(cit, str) and cit not in artifact_ids:
+                            dangling.append(
+                                f"dossier claim citation {cit!r} not in artifact set"
+                            )
 
     passed = len(dangling) == 0
     detail = "; ".join(dangling) if dangling else "all references resolved"
@@ -152,18 +163,34 @@ def _gate_lineage_complete(
     dossier_path = run_dir / "final_dossier.json"
     dossier = _load_json(dossier_path)
     if dossier is not None:
-        sections: list[Any] = dossier.get("sections", [])
-        for section in sections:
-            claims: list[Any] = section.get("claims", [])
-            for claim in claims:
-                kind: Any = claim.get("kind")
-                if kind in ("fact", "evidence"):
-                    citations: list[Any] = claim.get("citations", [])
-                    if not citations:
-                        text: str = str(claim.get("text", ""))[:60]
-                        violations.append(
-                            f"dossier claim ({kind}) has no citations: {text!r}"
+        sections_val: Any = dossier.get("sections", [])
+        if not isinstance(sections_val, list):
+            violations.append("dossier sections is not a list (malformed dossier)")
+        else:
+            for section_v in cast("list[Any]", sections_val):
+                if not isinstance(section_v, dict):
+                    continue
+                section_vd = cast("dict[str, Any]", section_v)
+                claims_val: Any = section_vd.get("claims", [])
+                if not isinstance(claims_val, list):
+                    continue
+                for claim_v in cast("list[Any]", claims_val):
+                    if not isinstance(claim_v, dict):
+                        continue
+                    claim_vd = cast("dict[str, Any]", claim_v)
+                    kind: Any = claim_vd.get("kind")
+                    if kind in ("fact", "evidence"):
+                        raw_cit_val: Any = claim_vd.get("citations", [])
+                        citations_val: list[Any] = (
+                            cast("list[Any]", raw_cit_val)
+                            if isinstance(raw_cit_val, list)
+                            else []
                         )
+                        if not citations_val:
+                            text: str = str(claim_vd.get("text", ""))[:60]
+                            violations.append(
+                                f"dossier claim ({kind}) has no citations: {text!r}"
+                            )
 
     passed = len(violations) == 0
     detail = "; ".join(violations) if violations else "lineage complete"
@@ -329,32 +356,43 @@ def _gate_refresh_semantics(
 def _gate_conflict_visibility(
     artifacts: list[tuple[Path, dict[str, Any]]],
 ) -> tuple[_GateResult, list[dict[str, Any]]]:
-    """Surface financial conflicts into the report (never silently merged).
+    """Surface financial and product conflicts into the report (never silently merged).
 
-    Collects all financial artifacts, runs merge_financials, and returns both
-    the gate result and the conflict list to populate report["conflicts"].
+    Collects financial and product artifacts, runs merge_financials and
+    merge_products, and returns both the gate result and the combined conflict
+    list to populate report["conflicts"].
     The gate passes by construction once conflicts are surfaced — surfacing IS
     the visibility guarantee per spec §10.
 
-    If merge_financials raises (e.g. because a financial artifact is missing
-    currency_reported — caught by financial_usability), we degrade gracefully:
+    If merge_financials or merge_products raises (e.g. because an artifact is
+    malformed — caught by financial_usability), we degrade gracefully:
     return an empty conflict list and note the skip.  financial_usability will
     mark the run failed independently.
     """
     financials: list[dict[str, Any]] = [
         doc for _, doc in artifacts if artifact_kind(doc) == "financial"
     ]
+    products: list[dict[str, Any]] = [
+        doc for _, doc in artifacts if artifact_kind(doc) == "product"
+    ]
+    conflicts: list[dict[str, Any]] = []
     try:
-        result = merge_financials(financials)
-        conflicts: list[dict[str, Any]] = result["conflicts"]
-        n = len(conflicts)
-        detail = f"{n} conflict(s) surfaced"
+        fin_result = merge_financials(financials)
+        conflicts.extend(fin_result["conflicts"])
     except (KeyError, TypeError, ValueError):
-        conflicts = []
-        detail = (
-            "merge skipped: financial artifact(s) malformed "
-            "(see financial_usability gate for details)"
-        )
+        pass
+    try:
+        prod_result = merge_products(products)
+        conflicts.extend(prod_result["conflicts"])
+    except (KeyError, TypeError, ValueError):
+        pass
+    n = len(conflicts)
+    if n == 0 and not financials and not products:
+        detail = "no financial or product artifacts to merge"
+    elif n == 0:
+        detail = "0 conflict(s) surfaced"
+    else:
+        detail = f"{n} conflict(s) surfaced"
     return ("conflict_visibility", True, detail, True), conflicts
 
 

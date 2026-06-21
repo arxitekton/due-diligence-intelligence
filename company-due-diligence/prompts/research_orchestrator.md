@@ -36,9 +36,10 @@ company name (required), optional website / ticker / country / industry / aliase
    python scripts/merge_artifacts.py --run-dir output/companies/{slug}/runs/{run_id}
    ```
    Surface any conflicts for downstream dossier use.
-7. **Validate** — invoke `evidence_validation.md`. Block on FAIL before publishing.
-8. **Compare** (re-runs only) — invoke `run_comparison.md` to produce `change_log.md`.
-9. **Dossier** — invoke `dossier_generation.md` only after validation passes.
+7. **Build source inventory** — before validation, ensure `structured/source_inventory.json` exists for this run (produced by `source_retrieval.md` hand-off). If missing, run: `python scripts/build_source_inventory.py --company-id {slug} --run-id {run_id} --now {ISO}`
+8. **Validate** — invoke `evidence_validation.md`. Block on FAIL before publishing.
+9. **Compare** (re-runs only) — invoke `run_comparison.md` to produce `change_log.md`.
+10. **Dossier** — invoke `dossier_generation.md` only after validation passes.
 
 ## Output contract
 A run plan document (in-context) listing: `run_id`, `company_slug`, `mode`, ordered list of sub-prompts to execute, known gaps, and any mode-specific skips. No files are written by this prompt directly.

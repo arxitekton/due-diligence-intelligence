@@ -126,6 +126,42 @@ def test_products_merge_when_lifecycle_agrees() -> None:
     }
 
 
+def test_null_value_numeric_skipped_without_crash() -> None:
+    """Fix 1: value_numeric=None must not crash merge_financials."""
+    artifact: dict = {
+        "artifact_id": "art_0000000000000a03",
+        "schema_version": "1",
+        "company_id": "acme-corp",
+        "run_id": "20260620T183000Z-a1b2c3",
+        "source_id": "src_0000000000000001",
+        "lineage": {
+            "source_snapshot_id": "snap_1", "content_path": "p.pdf",
+            "locator": {"page": 1}, "snippet": "x",
+            "extraction_prompt": {"name": "financial_extraction", "version": "1"},
+        },
+        "source_context": {
+            "document_title": "10-K", "section_path": [],
+            "source_native_statement_name": "IS", "table_id": "is", "page": 1,
+        },
+        "periods": [{"period_id": "FY2025", "source_native_label": "FY2025",
+                     "period_start": "2025-01-01", "period_end": "2025-12-31", "as_of_date": None,
+                     "period_type": "FY", "fiscal_year": 2025, "fiscal_quarter": None,
+                     "currency_reported": "USD", "unit_scale": "millions", "decimals": 0,
+                     "restated": False}],
+        "line_items": [{"line_item_id": "li_null", "source_native_label": "Placeholder",
+                        "source_native_path": [], "scope": "consolidated", "row_order": 1,
+                        "column_ref": "FY2025", "value_raw": None, "value_numeric": None,
+                        "sign_convention": "positive", "footnote_refs": [],
+                        "cell_locator": {"row": 1, "col": "FY2025", "header_path": ["FY2025"]},
+                        "normalized_candidate": {"taxonomy_key": "revenue", "confidence": 0.5}}],
+        "footnotes": [], "normalization": None, "notes": None,
+    }
+    # Must not raise; null item is excluded from merged/conflicts
+    res = merge_financials([artifact])
+    assert res["merged"] == []
+    assert res["conflicts"] == []
+
+
 def test_products_conflict_on_lifecycle_disagreement() -> None:
     res = merge_products([
         _prod(

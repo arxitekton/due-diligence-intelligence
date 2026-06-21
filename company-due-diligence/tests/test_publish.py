@@ -52,3 +52,20 @@ def test_republish_overwrites_atomically(tmp_path: Path):
     (paths.run_dir / "final_dossier.json").write_text(json.dumps({"k": 2}), encoding="utf-8")
     publish_latest(paths, report=_report(True), now=_now())
     assert json.loads((paths.latest_dir / "final_dossier.json").read_text()) == {"k": 2}
+
+
+# Fix 5: run_manifest.json and data_quality_report.json are published
+def test_publish_includes_run_manifest_and_data_quality_report(tmp_path: Path):
+    """run_manifest.json and data_quality_report.json must appear in latest/."""
+    paths = _paths(tmp_path)
+    _seed_run(paths, {"k": 1})
+    manifest = {"run_id": RUN, "company_id": "acme-corp"}
+    dqr = {"run_id": RUN, "company_id": "acme-corp", "passed": True, "gates": []}
+    (paths.run_dir / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (paths.run_dir / "data_quality_report.json").write_text(json.dumps(dqr), encoding="utf-8")
+    result = publish_latest(paths, report=_report(True), now=_now())
+    assert result is True
+    assert (paths.latest_dir / "run_manifest.json").exists()
+    assert (paths.latest_dir / "data_quality_report.json").exists()
+    assert json.loads((paths.latest_dir / "run_manifest.json").read_text()) == manifest
+    assert json.loads((paths.latest_dir / "data_quality_report.json").read_text()) == dqr
