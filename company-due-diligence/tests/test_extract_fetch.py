@@ -1,6 +1,28 @@
 import pytest
 
-from cdd.extract.fetch import UnsafeURLError, _is_blocked_ip, assert_public_url, get
+from cdd.extract.fetch import (
+    UnsafeURLError,
+    _is_blocked_ip,
+    assert_public_url,
+    get,
+    resolve_user_agent,
+)
+
+
+def test_resolve_user_agent_default_has_contact():
+    ua = resolve_user_agent(None)
+    # SEC EDGAR requires a descriptive UA with a contact; default must carry one.
+    assert "contact" in ua.lower() and "@" in ua
+
+
+def test_resolve_user_agent_env_override(monkeypatch):
+    monkeypatch.setenv("CDD_HTTP_USER_AGENT", "Acme DD admin@acme.com")
+    assert resolve_user_agent(None) == "Acme DD admin@acme.com"
+
+
+def test_resolve_user_agent_explicit_wins(monkeypatch):
+    monkeypatch.setenv("CDD_HTTP_USER_AGENT", "env-ua admin@acme.com")
+    assert resolve_user_agent("explicit-ua x@y.com") == "explicit-ua x@y.com"
 
 
 class _FakeResp:

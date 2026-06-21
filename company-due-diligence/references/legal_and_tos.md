@@ -69,7 +69,7 @@ Before retrieving any source via HTTP:
 3. Observe the `Crawl-delay` directive if present. Do not retrieve sources at a rate that exceeds one request per crawl-delay interval for the same domain.
 4. Do not use rotating proxies, user-agent spoofing, or other techniques to circumvent rate limits or access controls.
 
-SEC EDGAR provides a dedicated bulk data API and specifies a rate limit of 10 requests per second for automated access. Use the EDGAR full-text search API or bulk download endpoints rather than scraping the HTML interface.
+SEC EDGAR provides a dedicated bulk data API and specifies a rate limit of 10 requests per second for automated access. Use the EDGAR full-text search API or bulk download endpoints rather than scraping the HTML interface. **SEC also rejects requests without a descriptive User-Agent that includes a contact** — set `CDD_HTTP_USER_AGENT` to a real value (e.g. `"Acme Diligence admin@acme.com"`) before fetching, or pass `user_agent=` to `cdd.extract.fetch.get`; otherwise EDGAR returns HTTP 403 and the source is recorded `unavailable`.
 
 ---
 

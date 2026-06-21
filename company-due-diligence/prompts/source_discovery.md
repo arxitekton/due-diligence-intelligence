@@ -8,9 +8,9 @@ company_id (slug), run_id, input parameters (name, website, ticker, country, ind
 
 ## Procedure
 1. Build a search plan covering each source class in priority order (official site, IR, filings/EDGAR, registries, patents/trademarks, then secondary, then signal).
-2. For each candidate, compute its logical `source_id` (URL + source_class) — the engine does this via `scripts/update_source_registry.py` from the URL+class you pass.
-3. Record a `discovered` event per source:
-   `python scripts/update_source_registry.py --log output/companies/{slug}/source_registry.jsonl --run-id {run_id} --source-id {src} --event-type discovered --event-time {ISO} --payload '{"url":"...","source_class":"...","source_priority":"...","title":"..."}'`
+2. The logical `source_id` is `URL + source_class`. Don't compute it by hand — pass `--url` and `--source-class` and the script derives it (or print it explicitly with `python scripts/source_id.py --url ... --source-class ...`).
+3. Record a `discovered` event per source (id derived from `--url`/`--source-class`):
+   `python scripts/update_source_registry.py --log output/companies/{slug}/source_registry.jsonl --run-id {run_id} --url "..." --source-class "..." --event-type discovered --event-time {ISO} --payload '{"url":"...","source_class":"...","source_priority":"...","title":"..."}'`
 4. Stop when each tier is reasonably covered or the research focus is satisfied. Log gaps (classes with zero candidates).
 
 ## Output contract

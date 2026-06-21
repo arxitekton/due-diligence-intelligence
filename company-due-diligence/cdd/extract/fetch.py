@@ -11,6 +11,7 @@ resolver so it is fully unit-testable without httpx or real DNS.
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
 from collections.abc import Callable
 from typing import Any
@@ -24,7 +25,24 @@ _BLOCKED_HOSTS = {"169.254.169.254", "metadata.google.internal"}
 _MAX_REDIRECTS = 5
 _MAX_BYTES = 50 * 1024 * 1024  # 50 MiB cap
 
+# Some primary sources (notably SEC EDGAR) reject requests without a descriptive
+# User-Agent that includes a contact. SEC's fair-access policy asks for a UA like
+# "Company Name contact@example.com". This default satisfies that shape; override
+# with a real contact via the CDD_HTTP_USER_AGENT env var or the user_agent= arg.
+_DEFAULT_USER_AGENT = (
+    "company-due-diligence/0.1 (due-diligence-intelligence; contact: due-diligence@example.com)"
+)
+
 Resolver = Callable[[str], list[str]]
+
+
+def resolve_user_agent(user_agent: str | None = None) -> str:
+    """Pick the User-Agent: explicit arg > CDD_HTTP_USER_AGENT env > default.
+
+    Set CDD_HTTP_USER_AGENT to a real contact (e.g. "Acme DD admin@acme.com") so
+    contact-requiring sources like SEC EDGAR accept the request.
+    """
+    return user_agent or os.environ.get("CDD_HTTP_USER_AGENT") or _DEFAULT_USER_AGENT
 
 
 class UnsafeURLError(ValueError):
@@ -90,7 +108,7 @@ def assert_public_url(url: str, *, resolver: Resolver = _default_resolver) -> No
 def get(
     url: str,
     *,
-    user_agent: str = "company-due-diligence/0.1",
+    user_agent: str | None = None,
     timeout: float = 30.0,
     resolver: Resolver = _default_resolver,
     client: Any = None,
@@ -124,7 +142,7 @@ def get(
         ExtractorUnavailable: httpx not installed (and no client injected).
         UnsafeURLError: the URL or a redirect target is not a safe public http(s) URL.
     """
-    headers = {"User-Agent": user_agent}
+    headers = {"User-Agent": resolve_user_agent(user_agent)}
     owns_client = client is None
     if owns_client:
         httpx: Any = _get_httpx()
