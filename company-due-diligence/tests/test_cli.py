@@ -50,6 +50,35 @@ def test_update_source_registry_cli(tmp_path: Path):
     assert json.loads(lines[0])["event_id"] == "evt_000001"
 
 
+def test_source_id_cli():
+    r = _run(["scripts/source_id.py", "--url", "https://example.com/ir", "--source-class", "ir"])
+    assert r.returncode == 0, r.stderr
+    sid = r.stdout.strip()
+    assert sid.startswith("src_") and len(sid) == 4 + 16
+
+
+def test_update_source_registry_derives_id_from_url_and_class(tmp_path: Path):
+    log = tmp_path / "source_registry.jsonl"
+    # derive the expected id via the dedicated CLI
+    sid = _run(["scripts/source_id.py", "--url", "https://example.com/ir",
+                "--source-class", "ir"]).stdout.strip()
+    r = _run(["scripts/update_source_registry.py", "--log", str(log),
+              "--run-id", "20260620T183000Z-a1", "--url", "https://example.com/ir",
+              "--source-class", "ir", "--event-type", "discovered",
+              "--event-time", "2026-06-20T18:30:00Z"])
+    assert r.returncode == 0, r.stderr
+    event = json.loads(log.read_text().strip().splitlines()[0])
+    assert event["entity_id"] == sid
+
+
+def test_update_source_registry_requires_id_or_url_class(tmp_path: Path):
+    log = tmp_path / "source_registry.jsonl"
+    r = _run(["scripts/update_source_registry.py", "--log", str(log),
+              "--run-id", "r1", "--event-type", "discovered",
+              "--event-time", "2026-06-20T18:30:00Z"])
+    assert r.returncode != 0  # neither --source-id nor --url/--source-class
+
+
 def test_build_manifest_cli(tmp_path: Path):
     company = tmp_path / "companies" / "acme-corp"
     company.mkdir(parents=True)
