@@ -41,8 +41,8 @@ The arms diverged on five verdicts. Each resolved by preferring the **web-verifi
 | OpenSanctions PEPs | claude | A | global (263 countries) | bulk + match API | free key | per tier | CC-BY-NC 4.0 | conditional — commercial needs licence | per_license | ⚠️ conditional | opensanctions.org/datasets/peps |
 | GDELT 2.0 | both | A | global, 100+ langs | bulk (CSV) + BigQuery + APIs | none | none (BigQuery billed) | self-declared "unlimited unrestricted use" | yes — redistribute/rehost w/ citation | indefinite | ✅ wire now | gdeltproject.org/about.html |
 | FATF High-Risk / Increased-Monitoring | codex | A | global jurisdiction-risk | manual (publication) | none | n/a | FATF site terms (unverified) | conditional | per_license | ⚠️ country-risk overlay (not an entity list) | fatf-gafi.org/.../High-risk-and-other-monitored-jurisdictions |
-| Canada Consolidated Autonomous Sanctions (CACSL) | both | B | Canada | bulk (XML/CSV) | none | none published | likely OGL-Canada (unverified at list level) | conditional | per_license | ⚠️ confirm OGL-Canada, then ✅ | international.gc.ca/.../sanctions/consolidated-consolidee |
-| Australia DFAT Consolidated List | both | B | Australia | bulk (XML/CSV) | none | none published | likely CC BY 4.0 (unverified) | conditional | per_license | ⚠️ confirm copyright, then ✅ | dfat.gov.au/.../consolidated-list |
+| Canada Consolidated Autonomous Sanctions (CACSL) | both | B | Canada | bulk (XML/HTML/PDF) | none | none published | **GC standard terms — NOT OGL-Canada** (verified 2026-06-21) | **no (commercial)** — non-commercial reproduction free w/ attribution; commercial redistribution **and any normalization/adaptation/translation** need prior written GC permission | session_only | ⚠️ ingest-to-screen only; commercial redistribution / normalized republication needs GC permission | canada.ca/en/transparency/terms.html ; international.gc.ca/.../sanctions/consolidated-consolide |
+| Australia DFAT Consolidated List | both | B | Australia | bulk (XML/CSV) | none | none published | **CC BY 4.0** (except Coat of Arms / 3rd-party; verified 2026-06-21) | yes — redistribute w/ attribution | indefinite | ✅ wire now (attribute "DFAT — www.dfat.gov.au") | dfat.gov.au/about-us/about-this-website/copyright |
 | FinCEN Beneficial Ownership (BOI) | claude | A | US | none (non-public) | n/a | n/a | CTA Access & Safeguards Rule | **no** — non-public by law | n/a | ❌ avoid (domestic data no longer collected since 2025) | fincen.gov/boi-faqs |
 
 ### 2b. Company registries / LEI / beneficial ownership
@@ -90,7 +90,7 @@ The arms diverged on five verdicts. Each resolved by preferring the **web-verifi
 | US Census Bureau APIs | codex | B | US | REST API + bulk | optional key | ~500 q/IP/day no key | US-gov PD | yes | indefinite | ✅ wire now | census.gov/data/developers.html |
 | US BEA API | codex | B | US | REST API | free key | none published | US-gov PD | yes | indefinite | ✅ wire now | bea.gov/API/signup |
 | BLS Public Data API | codex | B | US | REST API | optional key | 25/day no key, 500/day keyed | US-gov PD | yes | indefinite | ✅ wire now | bls.gov/developers |
-| UK ONS API | both | B | UK | REST API + bulk | none | none published | likely OGL v3.0 (unverified page) | conditional | per_license | ⚠️ confirm OGL, then ✅ | ons.gov.uk/help/termsandconditions |
+| UK ONS API | both | B | UK | REST API + bulk | none | none published | **OGL v3.0** (verified 2026-06-21) | yes | indefinite | ✅ wire now | ons.gov.uk/help/termsandconditions |
 | FRED (St. Louis Fed) | claude | B | US/global | REST API | free key | fair-use | FRED Services T&C | conditional — attribution; some series carry provider terms | per_license | ✅ wire now (attribute) | fred.stlouisfed.org |
 
 ### 2f. Signals / knowledge graphs
@@ -159,7 +159,7 @@ ASX, HKEXnews (scraping + redistribution barred), SEDAR+ (ToU bans automation �
 
 1. **Licences drift** — every row carries an as-of date (2026-06-21); re-verify before a build.
 2. **Aggregator ≠ primary** — OpenCorporates/OpenSanctions/Open Ownership impose their *own* (often stricter) licence atop public upstream data. The aggregator's terms govern what you may store/redistribute.
-3. **"Public domain" is not uniform** — OFAC/BIS/UK/US-gov = redistributable; **UN Consolidated, UN Comtrade, IMF = all-rights-reserved**, ingest-to-screen only.
+3. **"Public domain" is not uniform** — OFAC/BIS/UK/US-gov = redistributable; **UN Consolidated, UN Comtrade, IMF, and Canada CACSL = all-rights-reserved / permission-gated**, ingest-to-screen only.
 4. **Stale-pointer actions** — UK OFSI list withdrawn 2026-01-28 → FCDO; BIS CSL REST now needs a free key; OpenAlex now key-gated.
-5. **Derived-data trap** — CourtListener is **BY-ND**: you may rehost verbatim but not redistribute parsed/normalized dockets.
-6. **Unverified fields** — rows marked "unverified"/"likely" (Canada CACSL, DFAT, UK ONS licences; some Codex-arm rate limits) need a one-shot live confirmation before that source is wired.
+5. **Derived-data traps** — CourtListener is **BY-ND** (rehost verbatim only, no parsed/normalized redistribution); **Canada CACSL** GC terms require written permission for *any* normalization/adaptation as well as commercial redistribution. A DD pipeline that parses these into structured artifacts for a client deliverable trips both.
+6. **Verification status (2026-06-21 pass)** — UK ONS (OGL v3.0) and DFAT (CC BY 4.0) **confirmed** against primary pages; Canada CACSL **corrected** to GC standard terms (not OGL-Canada) per canada.ca/en/transparency/terms.html. Government sites that blocked automated fetch (GAC, dfat.gov.au page body) were corroborated via the departments' whole-of-government licensing statements. Residual unverified items: a few Codex-arm rate-limit figures (marked in-row) — low risk, confirm at connector-build time.
