@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdd.local/schemas/company_dossier.schema.json",
+  "title": "CompanyDossier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id", "company_id", "research_date", "retrieval_window",
+    "counts", "known_gaps", "confidence_summary", "sections"
+  ],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "company_id": {"type": "string", "minLength": 1},
+    "research_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "retrieval_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources_discovered", "sources_used", "sources_changed", "sources_unavailable"],
+      "properties": {
+        "sources_discovered": {"type": "integer", "minimum": 0},
+        "sources_used": {"type": "integer", "minimum": 0},
+        "sources_changed": {"type": "integer", "minimum": 0},
+        "sources_unavailable": {"type": "integer", "minimum": 0}
+      }
+    },
+    "known_gaps": {"type": "array", "items": {"type": "string"}},
+    "confidence_summary": {"type": "string", "enum": ["low", "medium", "high"]},
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "title", "claims"],
+        "properties": {
+          "key": {"type": "string"},
+          "title": {"type": "string"},
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text", "kind", "citations"],
+              "properties": {
+                "text": {"type": "string"},
+                "kind": {"type": "string", "enum": ["fact", "evidence", "inference"]},
+                "citations": {"type": "array", "items": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
