@@ -134,11 +134,11 @@ To add to `references/source_priority_rules.md` when connectors land (all Tier 1
 
 The skill wires only **SEC EDGAR** (`cdd/extract/edgar.py`) and **OFAC SDN** (`cdd/extract/sanctions.py`) today. Ranked backlog for `cdd/extract/`:
 
-### Priority 1 — clean licence, easy API, high coverage (build first)
-1. **Sanctions multi-list parsers** — extend `sanctions.py` beyond OFAC: **EU FSF** (XML, public token), **UK FCDO** (CSV/XML — *replaces the dead OFSI list*), **BIS CSL** (REST, free key). All redistributable. UN Consolidated: parse but tag `retention_policy: session_only` (screen, don't warehouse). *Effort: M.* Directly closes the documented "only OFAC parses today" gap.
-2. **GLEIF LEI** — new `extract/gleif.py`: REST `api.gleif.org/api/v1/lei-records`, JSON, no auth, CC0. Global entity-resolution + L2 parent graph. *Effort: S.*
-3. **UK Companies House** — new `extract/companies_house.py`: REST + free key (HTTP Basic), OGL, 600 req/5min. *Effort: S–M.*
-4. **GDELT** — new `extract/gdelt.py`: 15-min CSV or BigQuery, adverse-media screening (fills the KYC adverse-media gap; `adverse_media_event`). *Effort: M.*
+### Priority 1 — clean licence, easy API, high coverage (build first) — ✓ WIRED 2026-06-22
+1. **Sanctions multi-list parsers** — ✓ wired (`cdd/extract/sanctions.py`): **EU FSF**, **UK FCDO** (*replaces the dead OFSI list*), **BIS CSL** (REST), **UN Consolidated** (tagged `retention_policy: session_only` in `LIST_METADATA` — screen, don't warehouse). Closes the "only OFAC parses today" gap.
+2. **GLEIF LEI** — ✓ wired (`cdd/extract/gleif.py`): REST `api.gleif.org/api/v1/lei-records`, JSON, no auth, CC0.
+3. **UK Companies House** — ✓ wired (`cdd/extract/companies_house.py`): REST + free key (HTTP Basic via `CDD_COMPANIES_HOUSE_KEY`), OGL.
+4. **GDELT** — ✓ wired (`cdd/extract/gdelt.py`): DOC 2.0 artlist JSON, adverse-media screening (`adverse_media_event`).
 
 ### Priority 2 — high value, minor friction
 5. **US econ pack** — `extract/econ.py`: Census + BEA + BLS + FRED (+ World Bank, OECD-SDMX, Eurostat). All public-domain/CC-BY. Powers `market_intelligence.md`. *Effort: M (shared SDMX/REST client).*
