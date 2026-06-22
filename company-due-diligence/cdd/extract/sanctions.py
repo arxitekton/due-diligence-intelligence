@@ -26,7 +26,21 @@ from cdd.extract import ExtractorUnavailable
 OFFICIAL_LISTS: dict[str, str] = {
     "OFAC-SDN": "https://www.treasury.gov/ofac/downloads/sdn.csv",
     "EU-CONSOLIDATED": "https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList/content?token=dG9rZW4tMjAxNw",
-    "UK-OFSI": "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/consolidated-list.csv",
+    # UK OFSI consolidated list was withdrawn 2026-01-28; FCDO is the successor.
+    "UK-FCDO": "https://sanctionslist.fcdo.gov.uk/docs/UK-Sanctions-List.csv",
+    "BIS-CSL": "https://data.trade.gov/downloadable_consolidated_screening_list/v1/consolidated.json",
+    "UN-CONSOLIDATED": "https://scsanctions.un.org/resources/xml/en/consolidated.xml",
+}
+
+# Retention policy per list maps to references/legal_and_tos.md. Redistributable
+# lists are "indefinite"; UN terms forbid redistribution → "session_only"
+# (ingest-to-screen, do not warehouse). See references/open_data_sources.md §2a.
+LIST_METADATA: dict[str, dict[str, str]] = {
+    "OFAC-SDN": {"retention_policy": "indefinite", "license": "US-gov public domain"},
+    "EU-CONSOLIDATED": {"retention_policy": "per_license", "license": "EC reuse (Decision 2011/833/EU)"},
+    "UK-FCDO": {"retention_policy": "indefinite", "license": "OGL v3.0"},
+    "BIS-CSL": {"retention_policy": "per_license", "license": "US-gov public domain / ITA Open Data"},
+    "UN-CONSOLIDATED": {"retention_policy": "session_only", "license": "UN Terms of Use (no redistribution)"},
 }
 
 # OFAC uses this sentinel to represent a null / not-applicable field.

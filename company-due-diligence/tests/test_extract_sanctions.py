@@ -80,3 +80,15 @@ def test_fetch_and_screen_with_injected_fetcher():
 def test_fetch_and_screen_unknown_list():
     with pytest.raises(ValueError):
         fetch_and_screen("x", list_id="NOPE", fetcher=lambda u: b"")
+
+
+def test_official_lists_has_all_priority1_lists():
+    from cdd.extract.sanctions import OFFICIAL_LISTS, LIST_METADATA
+    for lid in ("OFAC-SDN", "EU-CONSOLIDATED", "UK-FCDO", "BIS-CSL", "UN-CONSOLIDATED"):
+        assert lid in OFFICIAL_LISTS and OFFICIAL_LISTS[lid].startswith("https://")
+        assert lid in LIST_METADATA
+    # Dead OFSI list must be retired (withdrawn 2026-01-28).
+    assert "UK-OFSI" not in OFFICIAL_LISTS
+    # UN is ingest-to-screen only.
+    assert LIST_METADATA["UN-CONSOLIDATED"]["retention_policy"] == "session_only"
+    assert LIST_METADATA["OFAC-SDN"]["retention_policy"] == "indefinite"
