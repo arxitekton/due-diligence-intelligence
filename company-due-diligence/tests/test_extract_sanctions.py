@@ -178,3 +178,21 @@ def test_official_lists_has_all_priority1_lists():
     # UN is ingest-to-screen only.
     assert LIST_METADATA["UN-CONSOLIDATED"]["retention_policy"] == "session_only"
     assert LIST_METADATA["OFAC-SDN"]["retention_policy"] == "indefinite"
+
+
+def test_fetch_and_screen_dispatches_uk_fcdo():
+    from cdd.extract.sanctions import fetch_and_screen, OFFICIAL_LISTS
+    captured = {}
+    def fake(url: str) -> bytes:
+        captured["url"] = url
+        return _UK_FCDO_CSV
+    hits = fetch_and_screen("Bad Actor LLC", list_id="UK-FCDO", fetcher=fake)
+    assert captured["url"] == OFFICIAL_LISTS["UK-FCDO"]
+    assert len(hits) == 1 and hits[0]["list"] == "UK-FCDO"
+
+def test_fetch_and_screen_dispatches_bis_and_un():
+    from cdd.extract.sanctions import fetch_and_screen
+    bis = fetch_and_screen("Bad Actor LLC", list_id="BIS-CSL", fetcher=lambda u: _BIS_JSON)
+    assert bis and bis[0]["list"] == "BIS-CSL"
+    un = fetch_and_screen("Bad Actor LLC", list_id="UN-CONSOLIDATED", fetcher=lambda u: _UN_XML)
+    assert un and un[0]["list"] == "UN-CONSOLIDATED"

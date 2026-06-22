@@ -407,6 +407,15 @@ def _default_fetcher(url: str) -> bytes:
     return content
 
 
+_PARSERS: dict[str, Callable[[bytes], list[dict[str, Any]]]] = {
+    "OFAC-SDN": parse_sdn_csv,
+    "UK-FCDO": parse_uk_fcdo_csv,
+    "EU-CONSOLIDATED": parse_eu_csv,
+    "BIS-CSL": parse_bis_csl_json,
+    "UN-CONSOLIDATED": parse_un_xml,
+}
+
+
 def fetch_and_screen(
     query: str,
     *,
@@ -414,6 +423,10 @@ def fetch_and_screen(
     fetcher: Callable[[str], bytes] | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch a sanctions list, parse it, and screen the query name.
+
+    All lists in ``_PARSERS`` are supported: OFAC-SDN, EU-CONSOLIDATED,
+    UK-FCDO, BIS-CSL, and UN-CONSOLIDATED. Note that UN-CONSOLIDATED is
+    session-only per LIST_METADATA — callers must not warehouse the raw bytes.
 
     Args:
         query: Name to screen.
@@ -427,7 +440,6 @@ def fetch_and_screen(
 
     Raises:
         ValueError: ``list_id`` is not in ``OFFICIAL_LISTS``.
-        NotImplementedError: ``list_id`` is valid but has no parser yet.
         ExtractorUnavailable: httpx is not installed and no ``fetcher`` was
             injected.
     """
@@ -435,12 +447,6 @@ def fetch_and_screen(
         raise ValueError(
             f"Unknown sanctions list {list_id!r}. "
             f"Available: {sorted(OFFICIAL_LISTS)}"
-        )
-
-    if list_id != "OFAC-SDN":
-        raise NotImplementedError(
-            f"Parsing for {list_id!r} is not yet implemented. "
-            "Only OFAC-SDN parsing ships in this release."
         )
 
     url = OFFICIAL_LISTS[list_id]
@@ -460,5 +466,6 @@ def fetch_and_screen(
         fetcher = _default_fetcher
 
     raw = fetcher(url)
-    entries = parse_sdn_csv(raw)
+    parser = _PARSERS[list_id]
+    entries = parser(raw)
     return screen_name(query, entries)
