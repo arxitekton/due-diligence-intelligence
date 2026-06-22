@@ -26,4 +26,8 @@ def capabilities() -> dict[str, bool]:
         "edgar": _have("edgar"),
         "fetch": _have("httpx"),
         "sanctions": _have("httpx"),
+        "gleif": _have("httpx"),
+        "companies_house": _have("httpx"),
+        "gdelt": _have("httpx"),
+        "sanctions_xml": _have("defusedxml"),
     }
