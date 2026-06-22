@@ -64,7 +64,7 @@ artifact across all runs. `latest/` is published only after validation passes.
 | **Engine** (deterministic, network-free) | `cdd/` | identity & run lifecycle, dual-hash canonicalization + `diff_class`, append-only event-log registries, derived manifest & source inventory, run comparison + delta classification, evidentiary validation, lineage-preserving merge + conflict sets, validation-gated atomic publish, exporters |
 | **Schemas** (9) | `schemas/` | `run_manifest`, `source_registry`, `artifact_registry`, `source_inventory`, `extracted_artifact`, `financial_artifact`, `product_artifact`, `company_dossier`, `data_quality_report` (+ `conflict_set`) |
 | **Prompts** (14) | `prompts/` | orchestrator · discovery · retrieval · extraction prompts (evidence, product, financial, corporate-structure, market-intel, risk, event, **sanctions-screening**) · validation · dossier · run comparison |
-| **References** (9) | `references/` | research methodology · source priority · data quality · anti-hallucination · **sanctions screening rules** · financial & product extraction rules · legal/ToS · provenance & reproducibility |
+| **References** (10) | `references/` | research methodology · source priority · data quality · anti-hallucination · **sanctions screening rules** · financial & product extraction rules · legal/ToS · provenance & reproducibility · **open data sources** |
 | **CLIs** (15) | `scripts/` | run lifecycle, hashing, registry updates, inventory/manifest builders, compare/change-log, validation, merge, exporters, install |
 | **Optional extraction tools** | `cdd/extract/` | HTML cleaning, PDF tables, EDGAR, SSRF-guarded HTTP fetch, **OFAC-SDN sanctions helper** (`cdd.extract.sanctions`) — lazy-loaded; absence degrades gracefully |
 
