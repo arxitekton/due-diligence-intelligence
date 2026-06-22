@@ -13,7 +13,7 @@ import base64
 import json
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode
 
 from cdd.extract import ExtractorUnavailable
@@ -25,15 +25,19 @@ Fetcher = Callable[[str, dict[str, str]], bytes]
 
 def parse_company_search(data: bytes) -> list[dict[str, Any]]:
     """Parse a Companies House company-search JSON response."""
-    payload: Any = json.loads(data.decode("utf-8"))
+    raw: Any = json.loads(data.decode("utf-8"))
+    payload: dict[str, Any] = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
     rows: list[dict[str, Any]] = []
     for item in payload.get("items", []):
+        if not isinstance(item, dict):
+            continue
+        item_d: dict[str, Any] = cast(dict[str, Any], item)
         rows.append(
             {
-                "company_number": item.get("company_number", ""),
-                "title": item.get("title", ""),
-                "status": item.get("company_status", ""),
-                "address": item.get("address_snippet", ""),
+                "company_number": item_d.get("company_number", ""),
+                "title": item_d.get("title", ""),
+                "status": item_d.get("company_status", ""),
+                "address": item_d.get("address_snippet", ""),
             }
         )
     return rows

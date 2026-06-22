@@ -44,3 +44,13 @@ def test_search_companies_injected_fetcher():
 def test_search_companies_requires_key():
     with pytest.raises(ExtractorUnavailable):
         search_companies("x", api_key=None, fetcher=lambda u, h: b"{}")
+
+
+def test_parse_company_search_non_dict_top_level():
+    """Bare array at top level must return [] without raising."""
+    assert parse_company_search(b"[]") == []
+
+
+def test_parse_company_search_non_dict_item():
+    """Non-dict items inside 'items' must be skipped gracefully."""
+    assert parse_company_search(b'{"items":[null]}') == []

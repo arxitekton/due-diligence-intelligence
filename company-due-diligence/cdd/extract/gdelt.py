@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode
 
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -24,16 +24,20 @@ def parse_articles(data: bytes) -> list[dict[str, Any]]:
     text = data.decode("utf-8").strip()
     if not text:
         return []
-    payload: Any = json.loads(text)
+    raw: Any = json.loads(text)
+    payload: dict[str, Any] = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
     articles: list[dict[str, Any]] = []
     for a in payload.get("articles", []):
+        if not isinstance(a, dict):
+            continue
+        a_d: dict[str, Any] = cast(dict[str, Any], a)
         articles.append(
             {
-                "url": a.get("url", ""),
-                "title": a.get("title", ""),
-                "seendate": a.get("seendate", ""),
-                "domain": a.get("domain", ""),
-                "language": a.get("language", ""),
+                "url": a_d.get("url", ""),
+                "title": a_d.get("title", ""),
+                "seendate": a_d.get("seendate", ""),
+                "domain": a_d.get("domain", ""),
+                "language": a_d.get("language", ""),
             }
         )
     return articles

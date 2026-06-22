@@ -31,3 +31,13 @@ def test_search_adverse_media_injected_fetcher():
     assert arts[0]["domain"] == "news.example"
     assert captured["url"].startswith(GDELT_DOC_URL)
     assert "mode=artlist" in captured["url"] and "format=json" in captured["url"]
+
+
+def test_parse_articles_non_dict_top_level():
+    """Non-dict top-level (e.g. null) must return [] without raising."""
+    assert parse_articles(b"null") == []
+
+
+def test_parse_articles_non_dict_item():
+    """Non-dict items inside 'articles' must be skipped gracefully."""
+    assert parse_articles(b'{"articles":[null]}') == []

@@ -24,3 +24,13 @@ def test_search_by_name_uses_injected_fetcher():
     assert recs[0]["lei"] == "5493001KJTIIGC8Y1R12"
     assert captured["url"].startswith(GLEIF_SEARCH_URL)
     assert "Bad+Actor+LLC" in captured["url"] or "Bad%20Actor%20LLC" in captured["url"]
+
+
+def test_parse_lei_records_non_dict_top_level():
+    """Bare array at top level must return [] without raising."""
+    assert parse_lei_records(b"[]") == []
+
+
+def test_parse_lei_records_non_dict_item():
+    """Non-dict items inside 'data' must be skipped gracefully."""
+    assert parse_lei_records(b'{"data":[null]}') == []
