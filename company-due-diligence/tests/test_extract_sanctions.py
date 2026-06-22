@@ -82,6 +82,26 @@ def test_fetch_and_screen_unknown_list():
         fetch_and_screen("x", list_id="NOPE", fetcher=lambda u: b"")
 
 
+_UK_FCDO_CSV = (
+    "Unique ID,OFSI Group ID,Name 1,Name 2,Name 3,Name 4,Name 5,Name 6,"
+    "Alias Type,Regime,Individual/Entity/Ship\r\n"
+    "UKS0001,GRP1,Bad,,,Actor,LLC,,Primary name,Russia,Entity\r\n"
+    "UKS0001,GRP1,Bad,,,Actor,Limited,,AKA,Russia,Entity\r\n"
+    "UKS0002,GRP2,Jane,,,Doe,,,Primary name,Russia,Individual\r\n"
+).encode("utf-8")
+
+def test_parse_uk_fcdo_csv_groups_aliases():
+    from cdd.extract.sanctions import parse_uk_fcdo_csv
+    entries = parse_uk_fcdo_csv(_UK_FCDO_CSV)
+    assert len(entries) == 2  # grouped by Unique ID
+    e = next(x for x in entries if x["entry_id"] == "UKS0001")
+    assert e["list"] == "UK-FCDO"
+    assert e["name"] == "Bad Actor LLC"
+    assert "Bad Actor Limited" in e["aliases"]
+    assert e["type"] == "Entity"
+    assert e["program"] == "Russia"
+
+
 def test_official_lists_has_all_priority1_lists():
     from cdd.extract.sanctions import OFFICIAL_LISTS, LIST_METADATA
     for lid in ("OFAC-SDN", "EU-CONSOLIDATED", "UK-FCDO", "BIS-CSL", "UN-CONSOLIDATED"):

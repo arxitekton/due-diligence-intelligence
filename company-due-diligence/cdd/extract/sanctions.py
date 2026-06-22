@@ -151,6 +151,58 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# UK FCDO sanctions list CSV parser
+# ---------------------------------------------------------------------------
+
+_UK_NAME_COLS = ["Name 1", "Name 2", "Name 3", "Name 4", "Name 5", "Name 6"]
+
+
+def _join_name_parts(row: dict[str, str], cols: list[str]) -> str:
+    """Join present, non-empty name-part columns into one whole name."""
+    parts = [row.get(c, "").strip() for c in cols]
+    return _WS_RE.sub(" ", " ".join(p for p in parts if p)).strip()
+
+
+def parse_uk_fcdo_csv(data: bytes) -> list[dict[str, Any]]:
+    """Parse the UK Sanctions List (FCDO) CSV into normalized entry dicts.
+
+    Rows sharing a ``Unique ID`` form one designation; the ``Primary name`` row
+    supplies ``name``, ``AKA``/alias rows and non-Latin names become ``aliases``.
+    Successor to the OFSI consolidated list (withdrawn 2026-01-28).
+    """
+    text = data.decode("utf-8-sig")  # FCDO CSV is UTF-8, may carry a BOM
+    reader = csv.DictReader(io.StringIO(text))
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in reader:
+        uid = (row.get("Unique ID") or row.get("OFSI Group ID") or "").strip()
+        if not uid:
+            continue
+        whole = _join_name_parts(row, _UK_NAME_COLS)
+        alias_type = (row.get("Alias Type") or "").strip().casefold()
+        entry = grouped.get(uid)
+        if entry is None:
+            entry = {
+                "list": "UK-FCDO",
+                "entry_id": uid,
+                "name": "",
+                "type": (row.get("Individual/Entity/Ship") or "").strip(),
+                "program": (row.get("Regime") or "").strip(),
+                "remarks": None,
+                "aliases": [],
+            }
+            grouped[uid] = entry
+        if alias_type == "primary name" and not entry["name"]:
+            entry["name"] = whole
+        elif whole:
+            entry["aliases"].append(whole)
+    # If a group had no explicit primary row, promote the first alias to name.
+    for entry in grouped.values():
+        if not entry["name"] and entry["aliases"]:
+            entry["name"] = entry["aliases"].pop(0)
+    return list(grouped.values())
+
+
+# ---------------------------------------------------------------------------
 # Name matcher
 # ---------------------------------------------------------------------------
 
