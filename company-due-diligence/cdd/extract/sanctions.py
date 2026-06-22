@@ -152,6 +152,61 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# UN Security Council Consolidated List XML parser
+# ---------------------------------------------------------------------------
+
+
+def _un_text(node: Any, tag: str) -> str:
+    child = node.find(tag)
+    return child.text.strip() if child is not None and child.text else ""
+
+
+def _un_aliases(node: Any, alias_tag: str) -> list[str]:
+    out: list[str] = []
+    for alias in node.findall(alias_tag):
+        name = _un_text(alias, "ALIAS_NAME")
+        if name:
+            out.append(name)
+    return out
+
+
+def parse_un_xml(data: bytes) -> list[dict[str, Any]]:
+    """Parse the UN Security Council Consolidated List XML.
+
+    Uses defusedxml (untrusted network XML). INGEST-TO-SCREEN ONLY: UN terms
+    forbid redistribution — callers must honour LIST_METADATA session_only
+    retention and not warehouse the raw bytes.
+    """
+    try:
+        from defusedxml.ElementTree import fromstring
+    except ImportError as exc:
+        raise ExtractorUnavailable("defusedxml not installed") from exc
+    root = fromstring(data)
+    entries: list[dict[str, Any]] = []
+    for node in root.iter("INDIVIDUAL"):
+        name = _WS_RE.sub(
+            " ",
+            " ".join(
+                p for p in (_un_text(node, "FIRST_NAME"), _un_text(node, "SECOND_NAME"),
+                            _un_text(node, "THIRD_NAME")) if p
+            ),
+        ).strip()
+        entries.append({
+            "list": "UN-CONSOLIDATED", "entry_id": _un_text(node, "DATAID"),
+            "name": name, "type": "individual", "program": _un_text(node, "UN_LIST_TYPE"),
+            "remarks": None, "aliases": _un_aliases(node, "INDIVIDUAL_ALIAS"),
+        })
+    for node in root.iter("ENTITY"):
+        entries.append({
+            "list": "UN-CONSOLIDATED", "entry_id": _un_text(node, "DATAID"),
+            "name": _un_text(node, "FIRST_NAME"), "type": "entity",
+            "program": _un_text(node, "UN_LIST_TYPE"),
+            "remarks": None, "aliases": _un_aliases(node, "ENTITY_ALIAS"),
+        })
+    return entries
+
+
+# ---------------------------------------------------------------------------
 # BIS Consolidated Screening List JSON parser
 # ---------------------------------------------------------------------------
 

@@ -82,6 +82,32 @@ def test_fetch_and_screen_unknown_list():
         fetch_and_screen("x", list_id="NOPE", fetcher=lambda u: b"")
 
 
+_UN_XML = (
+    b'<?xml version="1.0" encoding="UTF-8"?>'
+    b"<CONSOLIDATED_LIST><INDIVIDUALS>"
+    b"<INDIVIDUAL><DATAID>1</DATAID><FIRST_NAME>Jane</FIRST_NAME>"
+    b"<SECOND_NAME>Doe</SECOND_NAME><UN_LIST_TYPE>Al-Qaida</UN_LIST_TYPE>"
+    b"<INDIVIDUAL_ALIAS><ALIAS_NAME>J. Doe</ALIAS_NAME></INDIVIDUAL_ALIAS>"
+    b"</INDIVIDUAL></INDIVIDUALS>"
+    b"<ENTITIES><ENTITY><DATAID>2</DATAID>"
+    b"<FIRST_NAME>Bad Actor LLC</FIRST_NAME><UN_LIST_TYPE>Al-Qaida</UN_LIST_TYPE>"
+    b"</ENTITY></ENTITIES></CONSOLIDATED_LIST>"
+)
+
+def test_parse_un_xml_individuals_and_entities():
+    from cdd.extract.sanctions import parse_un_xml
+    entries = parse_un_xml(_UN_XML)
+    ind = next(e for e in entries if e["entry_id"] == "1")
+    assert ind["list"] == "UN-CONSOLIDATED"
+    assert ind["name"] == "Jane Doe"
+    assert "J. Doe" in ind["aliases"]
+    assert ind["type"] == "individual"
+    assert ind["program"] == "Al-Qaida"
+    ent = next(e for e in entries if e["entry_id"] == "2")
+    assert ent["name"] == "Bad Actor LLC"
+    assert ent["type"] == "entity"
+
+
 _BIS_JSON = (
     b'{"results":[{"id":"abc-1","name":"Bad Actor LLC",'
     b'"alt_names":["Bad Actor OOO"],"source":"Entity List (EL)",'
