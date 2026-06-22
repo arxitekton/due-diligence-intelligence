@@ -151,6 +151,41 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# EU Consolidated Financial Sanctions File CSV parser
+# ---------------------------------------------------------------------------
+
+
+def parse_eu_csv(data: bytes) -> list[dict[str, Any]]:
+    """Parse the EU Consolidated Financial Sanctions File (semicolon CSV).
+
+    Rows sharing ``Entity_LogicalId`` form one designation; the first
+    ``NameAlias_WholeName`` is the primary name, the rest are aliases.
+    """
+    text = data.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in reader:
+        lid = (row.get("Entity_LogicalId") or "").strip()
+        whole = (row.get("NameAlias_WholeName") or "").strip()
+        if not lid or not whole:
+            continue
+        entry = grouped.get(lid)
+        if entry is None:
+            grouped[lid] = {
+                "list": "EU-CONSOLIDATED",
+                "entry_id": lid,
+                "name": whole,
+                "type": (row.get("Entity_SubjectType") or "").strip(),
+                "program": (row.get("Entity_Regulation_Programme") or "").strip(),
+                "remarks": None,
+                "aliases": [],
+            }
+        else:
+            entry["aliases"].append(whole)
+    return list(grouped.values())
+
+
+# ---------------------------------------------------------------------------
 # UK FCDO sanctions list CSV parser
 # ---------------------------------------------------------------------------
 

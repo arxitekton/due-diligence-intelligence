@@ -82,6 +82,25 @@ def test_fetch_and_screen_unknown_list():
         fetch_and_screen("x", list_id="NOPE", fetcher=lambda u: b"")
 
 
+_EU_CSV = (
+    "Entity_LogicalId;NameAlias_WholeName;Entity_SubjectType;Entity_Regulation_Programme\r\n"
+    "13;Bad Actor LLC;enterprise;RUS\r\n"
+    "13;Bad Actor OOO;enterprise;RUS\r\n"
+    "14;Jane Doe;person;RUS\r\n"
+).encode("utf-8")
+
+def test_parse_eu_csv_groups_by_logical_id():
+    from cdd.extract.sanctions import parse_eu_csv
+    entries = parse_eu_csv(_EU_CSV)
+    assert len(entries) == 2
+    e = next(x for x in entries if x["entry_id"] == "13")
+    assert e["list"] == "EU-CONSOLIDATED"
+    assert e["name"] == "Bad Actor LLC"
+    assert "Bad Actor OOO" in e["aliases"]
+    assert e["type"] == "enterprise"
+    assert e["program"] == "RUS"
+
+
 _UK_FCDO_CSV = (
     "Unique ID,OFSI Group ID,Name 1,Name 2,Name 3,Name 4,Name 5,Name 6,"
     "Alias Type,Regime,Individual/Entity/Ship\r\n"
