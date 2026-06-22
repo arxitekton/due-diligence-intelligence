@@ -222,12 +222,14 @@ def parse_un_xml(data: bytes) -> list[dict[str, Any]]:
 
 def parse_bis_csl_json(data: bytes) -> list[dict[str, Any]]:
     """Parse the BIS Consolidated Screening List JSON into normalized entries."""
-    payload = json.loads(data.decode("utf-8"))
-    results = payload.get("results", []) if isinstance(payload, dict) else []
+    raw: Any = json.loads(data.decode("utf-8"))
+    payload: dict[str, Any] = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
+    results: list[Any] = cast(list[Any], payload.get("results", []))
     entries: list[dict[str, Any]] = []
-    for r in results:
-        alt = r.get("alt_names") or []
-        programs = r.get("programs") or []
+    for item in results:
+        r: dict[str, Any] = cast(dict[str, Any], item) if isinstance(item, dict) else {}
+        alt: list[Any] = cast(list[Any], r.get("alt_names") or [])
+        programs: list[Any] = cast(list[Any], r.get("programs") or [])
         entries.append(
             {
                 "list": "BIS-CSL",
@@ -308,16 +310,17 @@ def parse_uk_fcdo_csv(data: bytes) -> list[dict[str, Any]]:
         alias_type = (row.get("Alias Type") or "").strip().casefold()
         entry = grouped.get(uid)
         if entry is None:
-            entry = {
+            new_entry: dict[str, Any] = {
                 "list": "UK-FCDO",
                 "entry_id": uid,
                 "name": "",
                 "type": (row.get("Individual/Entity/Ship") or "").strip(),
                 "program": (row.get("Regime") or "").strip(),
                 "remarks": None,
-                "aliases": [],
+                "aliases": cast(list[Any], []),
             }
-            grouped[uid] = entry
+            grouped[uid] = new_entry
+            entry = new_entry
         if alias_type == "primary name" and not entry["name"]:
             entry["name"] = whole
         elif whole:

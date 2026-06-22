@@ -95,6 +95,7 @@ _UN_XML = (
 )
 
 def test_parse_un_xml_individuals_and_entities():
+    pytest.importorskip("defusedxml")
     from cdd.extract.sanctions import parse_un_xml
     entries = parse_un_xml(_UN_XML)
     ind = next(e for e in entries if e["entry_id"] == "1")
@@ -191,6 +192,7 @@ def test_fetch_and_screen_dispatches_uk_fcdo():
     assert len(hits) == 1 and hits[0]["list"] == "UK-FCDO"
 
 def test_fetch_and_screen_dispatches_bis_and_un():
+    pytest.importorskip("defusedxml")
     from cdd.extract.sanctions import fetch_and_screen
     bis = fetch_and_screen("Bad Actor LLC", list_id="BIS-CSL", fetcher=lambda u: _BIS_JSON)
     assert bis and bis[0]["list"] == "BIS-CSL"
