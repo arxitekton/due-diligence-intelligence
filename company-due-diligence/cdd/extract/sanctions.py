@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 import string
 from collections.abc import Callable
@@ -145,6 +146,33 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
                 "program": program,
                 "remarks": remarks,
                 "aliases": _extract_aliases(remarks),
+            }
+        )
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# BIS Consolidated Screening List JSON parser
+# ---------------------------------------------------------------------------
+
+
+def parse_bis_csl_json(data: bytes) -> list[dict[str, Any]]:
+    """Parse the BIS Consolidated Screening List JSON into normalized entries."""
+    payload = json.loads(data.decode("utf-8"))
+    results = payload.get("results", []) if isinstance(payload, dict) else []
+    entries: list[dict[str, Any]] = []
+    for r in results:
+        alt = r.get("alt_names") or []
+        programs = r.get("programs") or []
+        entries.append(
+            {
+                "list": "BIS-CSL",
+                "entry_id": str(r.get("id", "")).strip(),
+                "name": str(r.get("name", "")).strip(),
+                "type": str(r.get("source", "")).strip(),
+                "program": "; ".join(str(p) for p in programs),
+                "remarks": None,
+                "aliases": [str(a).strip() for a in alt if str(a).strip()],
             }
         )
     return entries

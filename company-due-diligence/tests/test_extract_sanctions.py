@@ -82,6 +82,27 @@ def test_fetch_and_screen_unknown_list():
         fetch_and_screen("x", list_id="NOPE", fetcher=lambda u: b"")
 
 
+_BIS_JSON = (
+    b'{"results":[{"id":"abc-1","name":"Bad Actor LLC",'
+    b'"alt_names":["Bad Actor OOO"],"source":"Entity List (EL)",'
+    b'"programs":["EAR"]},'
+    b'{"id":"abc-2","name":"Jane Doe","alt_names":[],'
+    b'"source":"Denied Persons List (DPL)","programs":["EAR"]}]}'
+)
+
+def test_parse_bis_csl_json():
+    from cdd.extract.sanctions import parse_bis_csl_json
+    entries = parse_bis_csl_json(_BIS_JSON)
+    assert len(entries) == 2
+    e = entries[0]
+    assert e["list"] == "BIS-CSL"
+    assert e["entry_id"] == "abc-1"
+    assert e["name"] == "Bad Actor LLC"
+    assert e["aliases"] == ["Bad Actor OOO"]
+    assert e["type"] == "Entity List (EL)"
+    assert e["program"] == "EAR"
+
+
 _EU_CSV = (
     "Entity_LogicalId;NameAlias_WholeName;Entity_SubjectType;Entity_Regulation_Programme\r\n"
     "13;Bad Actor LLC;enterprise;RUS\r\n"
