@@ -130,11 +130,11 @@ def test_parse_bis_csl_json():
 
 
 _EU_CSV = (
-    "Entity_LogicalId;NameAlias_WholeName;Entity_SubjectType;Entity_Regulation_Programme\r\n"
-    "13;Bad Actor LLC;enterprise;RUS\r\n"
-    "13;Bad Actor OOO;enterprise;RUS\r\n"
-    "14;Jane Doe;person;RUS\r\n"
-).encode("utf-8")
+    b"Entity_LogicalId;NameAlias_WholeName;Entity_SubjectType;Entity_Regulation_Programme\r\n"
+    b"13;Bad Actor LLC;enterprise;RUS\r\n"
+    b"13;Bad Actor OOO;enterprise;RUS\r\n"
+    b"14;Jane Doe;person;RUS\r\n"
+)
 
 def test_parse_eu_csv_groups_by_logical_id():
     from cdd.extract.sanctions import parse_eu_csv
@@ -149,12 +149,12 @@ def test_parse_eu_csv_groups_by_logical_id():
 
 
 _UK_FCDO_CSV = (
-    "Unique ID,OFSI Group ID,Name 1,Name 2,Name 3,Name 4,Name 5,Name 6,"
-    "Alias Type,Regime,Individual/Entity/Ship\r\n"
-    "UKS0001,GRP1,Bad,,,Actor,LLC,,Primary name,Russia,Entity\r\n"
-    "UKS0001,GRP1,Bad,,,Actor,Limited,,AKA,Russia,Entity\r\n"
-    "UKS0002,GRP2,Jane,,,Doe,,,Primary name,Russia,Individual\r\n"
-).encode("utf-8")
+    b"Unique ID,OFSI Group ID,Name 1,Name 2,Name 3,Name 4,Name 5,Name 6,"
+    b"Alias Type,Regime,Individual/Entity/Ship\r\n"
+    b"UKS0001,GRP1,Bad,,,Actor,LLC,,Primary name,Russia,Entity\r\n"
+    b"UKS0001,GRP1,Bad,,,Actor,Limited,,AKA,Russia,Entity\r\n"
+    b"UKS0002,GRP2,Jane,,,Doe,,,Primary name,Russia,Individual\r\n"
+)
 
 def test_parse_uk_fcdo_csv_groups_aliases():
     from cdd.extract.sanctions import parse_uk_fcdo_csv
@@ -169,7 +169,7 @@ def test_parse_uk_fcdo_csv_groups_aliases():
 
 
 def test_official_lists_has_all_priority1_lists():
-    from cdd.extract.sanctions import OFFICIAL_LISTS, LIST_METADATA
+    from cdd.extract.sanctions import LIST_METADATA, OFFICIAL_LISTS
     for lid in ("OFAC-SDN", "EU-CONSOLIDATED", "UK-FCDO", "BIS-CSL", "UN-CONSOLIDATED"):
         assert lid in OFFICIAL_LISTS and OFFICIAL_LISTS[lid].startswith("https://")
         assert lid in LIST_METADATA
@@ -181,7 +181,7 @@ def test_official_lists_has_all_priority1_lists():
 
 
 def test_fetch_and_screen_dispatches_uk_fcdo():
-    from cdd.extract.sanctions import fetch_and_screen, OFFICIAL_LISTS
+    from cdd.extract.sanctions import OFFICIAL_LISTS, fetch_and_screen
     captured = {}
     def fake(url: str) -> bytes:
         captured["url"] = url

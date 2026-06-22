@@ -38,10 +38,19 @@ OFFICIAL_LISTS: dict[str, str] = {
 # (ingest-to-screen, do not warehouse). See references/open_data_sources.md §2a.
 LIST_METADATA: dict[str, dict[str, str]] = {
     "OFAC-SDN": {"retention_policy": "indefinite", "license": "US-gov public domain"},
-    "EU-CONSOLIDATED": {"retention_policy": "per_license", "license": "EC reuse (Decision 2011/833/EU)"},
+    "EU-CONSOLIDATED": {
+        "retention_policy": "per_license",
+        "license": "EC reuse (Decision 2011/833/EU)",
+    },
     "UK-FCDO": {"retention_policy": "indefinite", "license": "OGL v3.0"},
-    "BIS-CSL": {"retention_policy": "per_license", "license": "US-gov public domain / ITA Open Data"},
-    "UN-CONSOLIDATED": {"retention_policy": "session_only", "license": "UN Terms of Use (no redistribution)"},
+    "BIS-CSL": {
+        "retention_policy": "per_license",
+        "license": "US-gov public domain / ITA Open Data",
+    },
+    "UN-CONSOLIDATED": {
+        "retention_policy": "session_only",
+        "license": "UN Terms of Use (no redistribution)",
+    },
 }
 
 # OFAC uses this sentinel to represent a null / not-applicable field.
