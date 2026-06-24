@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 import string
 from collections.abc import Callable
@@ -26,7 +27,30 @@ from cdd.extract import ExtractorUnavailable
 OFFICIAL_LISTS: dict[str, str] = {
     "OFAC-SDN": "https://www.treasury.gov/ofac/downloads/sdn.csv",
     "EU-CONSOLIDATED": "https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList/content?token=dG9rZW4tMjAxNw",
-    "UK-OFSI": "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/consolidated-list.csv",
+    # UK OFSI consolidated list was withdrawn 2026-01-28; FCDO is the successor.
+    "UK-FCDO": "https://sanctionslist.fcdo.gov.uk/docs/UK-Sanctions-List.csv",
+    "BIS-CSL": "https://data.trade.gov/downloadable_consolidated_screening_list/v1/consolidated.json",
+    "UN-CONSOLIDATED": "https://scsanctions.un.org/resources/xml/en/consolidated.xml",
+}
+
+# Retention policy per list maps to references/legal_and_tos.md. Redistributable
+# lists are "indefinite"; UN terms forbid redistribution → "session_only"
+# (ingest-to-screen, do not warehouse). See references/open_data_sources.md §2a.
+LIST_METADATA: dict[str, dict[str, str]] = {
+    "OFAC-SDN": {"retention_policy": "indefinite", "license": "US-gov public domain"},
+    "EU-CONSOLIDATED": {
+        "retention_policy": "per_license",
+        "license": "EC reuse (Decision 2011/833/EU)",
+    },
+    "UK-FCDO": {"retention_policy": "indefinite", "license": "OGL v3.0"},
+    "BIS-CSL": {
+        "retention_policy": "per_license",
+        "license": "US-gov public domain / ITA Open Data",
+    },
+    "UN-CONSOLIDATED": {
+        "retention_policy": "session_only",
+        "license": "UN Terms of Use (no redistribution)",
+    },
 }
 
 # OFAC uses this sentinel to represent a null / not-applicable field.
@@ -137,6 +161,178 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# UN Security Council Consolidated List XML parser
+# ---------------------------------------------------------------------------
+
+
+def _un_text(node: Any, tag: str) -> str:
+    child = node.find(tag)
+    return child.text.strip() if child is not None and child.text else ""
+
+
+def _un_aliases(node: Any, alias_tag: str) -> list[str]:
+    out: list[str] = []
+    for alias in node.findall(alias_tag):
+        name = _un_text(alias, "ALIAS_NAME")
+        if name:
+            out.append(name)
+    return out
+
+
+def parse_un_xml(data: bytes) -> list[dict[str, Any]]:
+    """Parse the UN Security Council Consolidated List XML.
+
+    Uses defusedxml (untrusted network XML). INGEST-TO-SCREEN ONLY: UN terms
+    forbid redistribution — callers must honour LIST_METADATA session_only
+    retention and not warehouse the raw bytes.
+    """
+    try:
+        from defusedxml.ElementTree import fromstring
+    except ImportError as exc:
+        raise ExtractorUnavailable("defusedxml not installed") from exc
+    root = fromstring(data)
+    entries: list[dict[str, Any]] = []
+    for node in root.iter("INDIVIDUAL"):
+        name = _WS_RE.sub(
+            " ",
+            " ".join(
+                p for p in (_un_text(node, "FIRST_NAME"), _un_text(node, "SECOND_NAME"),
+                            _un_text(node, "THIRD_NAME")) if p
+            ),
+        ).strip()
+        entries.append({
+            "list": "UN-CONSOLIDATED", "entry_id": _un_text(node, "DATAID"),
+            "name": name, "type": "individual", "program": _un_text(node, "UN_LIST_TYPE"),
+            "remarks": None, "aliases": _un_aliases(node, "INDIVIDUAL_ALIAS"),
+        })
+    for node in root.iter("ENTITY"):
+        entries.append({
+            "list": "UN-CONSOLIDATED", "entry_id": _un_text(node, "DATAID"),
+            "name": _un_text(node, "FIRST_NAME"), "type": "entity",
+            "program": _un_text(node, "UN_LIST_TYPE"),
+            "remarks": None, "aliases": _un_aliases(node, "ENTITY_ALIAS"),
+        })
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# BIS Consolidated Screening List JSON parser
+# ---------------------------------------------------------------------------
+
+
+def parse_bis_csl_json(data: bytes) -> list[dict[str, Any]]:
+    """Parse the BIS Consolidated Screening List JSON into normalized entries."""
+    raw: Any = json.loads(data.decode("utf-8"))
+    payload: dict[str, Any] = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
+    results: list[Any] = cast(list[Any], payload.get("results", []))
+    entries: list[dict[str, Any]] = []
+    for item in results:
+        r: dict[str, Any] = cast(dict[str, Any], item) if isinstance(item, dict) else {}
+        alt: list[Any] = cast(list[Any], r.get("alt_names") or [])
+        programs: list[Any] = cast(list[Any], r.get("programs") or [])
+        entries.append(
+            {
+                "list": "BIS-CSL",
+                "entry_id": str(r.get("id", "")).strip(),
+                "name": str(r.get("name", "")).strip(),
+                "type": str(r.get("source", "")).strip(),
+                "program": "; ".join(str(p) for p in programs),
+                "remarks": None,
+                "aliases": [str(a).strip() for a in alt if str(a).strip()],
+            }
+        )
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# EU Consolidated Financial Sanctions File CSV parser
+# ---------------------------------------------------------------------------
+
+
+def parse_eu_csv(data: bytes) -> list[dict[str, Any]]:
+    """Parse the EU Consolidated Financial Sanctions File (semicolon CSV).
+
+    Rows sharing ``Entity_LogicalId`` form one designation; the first
+    ``NameAlias_WholeName`` is the primary name, the rest are aliases.
+    """
+    text = data.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in reader:
+        lid = (row.get("Entity_LogicalId") or "").strip()
+        whole = (row.get("NameAlias_WholeName") or "").strip()
+        if not lid or not whole:
+            continue
+        entry = grouped.get(lid)
+        if entry is None:
+            grouped[lid] = {
+                "list": "EU-CONSOLIDATED",
+                "entry_id": lid,
+                "name": whole,
+                "type": (row.get("Entity_SubjectType") or "").strip(),
+                "program": (row.get("Entity_Regulation_Programme") or "").strip(),
+                "remarks": None,
+                "aliases": [],
+            }
+        else:
+            entry["aliases"].append(whole)
+    return list(grouped.values())
+
+
+# ---------------------------------------------------------------------------
+# UK FCDO sanctions list CSV parser
+# ---------------------------------------------------------------------------
+
+_UK_NAME_COLS = ["Name 1", "Name 2", "Name 3", "Name 4", "Name 5", "Name 6"]
+
+
+def _join_name_parts(row: dict[str, str], cols: list[str]) -> str:
+    """Join present, non-empty name-part columns into one whole name."""
+    parts = [row.get(c, "").strip() for c in cols]
+    return _WS_RE.sub(" ", " ".join(p for p in parts if p)).strip()
+
+
+def parse_uk_fcdo_csv(data: bytes) -> list[dict[str, Any]]:
+    """Parse the UK Sanctions List (FCDO) CSV into normalized entry dicts.
+
+    Rows sharing a ``Unique ID`` form one designation; the ``Primary name`` row
+    supplies ``name``, ``AKA``/alias rows and non-Latin names become ``aliases``.
+    Successor to the OFSI consolidated list (withdrawn 2026-01-28).
+    """
+    text = data.decode("utf-8-sig")  # FCDO CSV is UTF-8, may carry a BOM
+    reader = csv.DictReader(io.StringIO(text))
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in reader:
+        uid = (row.get("Unique ID") or row.get("OFSI Group ID") or "").strip()
+        if not uid:
+            continue
+        whole = _join_name_parts(row, _UK_NAME_COLS)
+        alias_type = (row.get("Alias Type") or "").strip().casefold()
+        entry = grouped.get(uid)
+        if entry is None:
+            new_entry: dict[str, Any] = {
+                "list": "UK-FCDO",
+                "entry_id": uid,
+                "name": "",
+                "type": (row.get("Individual/Entity/Ship") or "").strip(),
+                "program": (row.get("Regime") or "").strip(),
+                "remarks": None,
+                "aliases": cast(list[Any], []),
+            }
+            grouped[uid] = new_entry
+            entry = new_entry
+        if alias_type == "primary name" and not entry["name"]:
+            entry["name"] = whole
+        elif whole:
+            entry["aliases"].append(whole)
+    # If a group had no explicit primary row, promote the first alias to name.
+    for entry in grouped.values():
+        if not entry["name"] and entry["aliases"]:
+            entry["name"] = entry["aliases"].pop(0)
+    return list(grouped.values())
+
+
+# ---------------------------------------------------------------------------
 # Name matcher
 # ---------------------------------------------------------------------------
 
@@ -223,6 +419,15 @@ def _default_fetcher(url: str) -> bytes:
     return content
 
 
+_PARSERS: dict[str, Callable[[bytes], list[dict[str, Any]]]] = {
+    "OFAC-SDN": parse_sdn_csv,
+    "UK-FCDO": parse_uk_fcdo_csv,
+    "EU-CONSOLIDATED": parse_eu_csv,
+    "BIS-CSL": parse_bis_csl_json,
+    "UN-CONSOLIDATED": parse_un_xml,
+}
+
+
 def fetch_and_screen(
     query: str,
     *,
@@ -230,6 +435,10 @@ def fetch_and_screen(
     fetcher: Callable[[str], bytes] | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch a sanctions list, parse it, and screen the query name.
+
+    All lists in ``_PARSERS`` are supported: OFAC-SDN, EU-CONSOLIDATED,
+    UK-FCDO, BIS-CSL, and UN-CONSOLIDATED. Note that UN-CONSOLIDATED is
+    session-only per LIST_METADATA — callers must not warehouse the raw bytes.
 
     Args:
         query: Name to screen.
@@ -243,7 +452,6 @@ def fetch_and_screen(
 
     Raises:
         ValueError: ``list_id`` is not in ``OFFICIAL_LISTS``.
-        NotImplementedError: ``list_id`` is valid but has no parser yet.
         ExtractorUnavailable: httpx is not installed and no ``fetcher`` was
             injected.
     """
@@ -251,12 +459,6 @@ def fetch_and_screen(
         raise ValueError(
             f"Unknown sanctions list {list_id!r}. "
             f"Available: {sorted(OFFICIAL_LISTS)}"
-        )
-
-    if list_id != "OFAC-SDN":
-        raise NotImplementedError(
-            f"Parsing for {list_id!r} is not yet implemented. "
-            "Only OFAC-SDN parsing ships in this release."
         )
 
     url = OFFICIAL_LISTS[list_id]
@@ -276,5 +478,6 @@ def fetch_and_screen(
         fetcher = _default_fetcher
 
     raw = fetcher(url)
-    entries = parse_sdn_csv(raw)
+    parser = _PARSERS[list_id]
+    entries = parser(raw)
     return screen_name(query, entries)

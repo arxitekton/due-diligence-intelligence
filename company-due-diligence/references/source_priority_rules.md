@@ -76,6 +76,23 @@ Behavioural or indirect evidence. Low direct evidential weight but high value fo
 
 ---
 
+### New source classes (open-data catalog connectors)
+
+| `source_class` | `source_priority` | Typical `original_format` | `issuer_affiliated` | `regulatory_status` |
+|---|---|---|---|---|
+| `lei_registry` | primary | JSON (API) | no | government/registrar |
+| `ubo_register` | primary | CSV, JSON | no | government |
+| `pep_list` | primary | CSV, JSON | no | government/curated |
+| `adverse_media_event` | signal | JSON | no | not filed |
+| `economic_indicator` | secondary | JSON, SDMX | no | government |
+| `trade_statistics` | secondary | JSON, CSV | no | government |
+| `knowledge_graph` | signal | JSON, RDF | no | not filed |
+
+These back the connectors in `cdd/extract/` (GLEIF → `lei_registry`, GDELT →
+`adverse_media_event`, etc.); see `references/open_data_sources.md`.
+
+---
+
 ## Conflict Resolution Order
 
 1. Within the same tier: emit `conflict_set` with appropriate `reason_code`.
