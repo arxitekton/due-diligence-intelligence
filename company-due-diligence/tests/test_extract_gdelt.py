@@ -1,3 +1,6 @@
+import pytest
+
+from cdd.extract import ExtractorUnavailable
 from cdd.extract.gdelt import GDELT_DOC_URL, parse_articles, search_adverse_media
 
 _GDELT_JSON = (
@@ -41,3 +44,12 @@ def test_parse_articles_non_dict_top_level():
 def test_parse_articles_non_dict_item():
     """Non-dict items inside 'articles' must be skipped gracefully."""
     assert parse_articles(b'{"articles":[null]}') == []
+
+
+def test_parse_articles_rate_limit_body_raises():
+    """A non-JSON throttle/error body (GDELT's 1-req/5s limit) surfaces a clear
+    ExtractorUnavailable, not an opaque JSONDecodeError, and is not mistaken for
+    an empty result set."""
+    body = b"Please limit requests to one every 5 seconds or contact ...\n\n"
+    with pytest.raises(ExtractorUnavailable):
+        parse_articles(body)
