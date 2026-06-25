@@ -252,27 +252,50 @@ def parse_bis_csl_json(data: bytes) -> list[dict[str, Any]]:
 def parse_eu_csv(data: bytes) -> list[dict[str, Any]]:
     """Parse the EU Consolidated Financial Sanctions File (semicolon CSV).
 
-    Rows sharing ``Entity_LogicalId`` form one designation; the first
-    ``NameAlias_WholeName`` is the primary name, the rest are aliases.
+    The live "csvFullSanctionsList" export is a denormalized flat file: each row
+    is one name-alias (``Naal_*``) block joined with the entity/address/birth/etc.
+    blocks, so several columns (notably ``Entity_logical_id``) appear MORE THAN
+    ONCE. ``csv.DictReader`` collapses duplicate headers to the last occurrence
+    (often empty on a name row), so we index positionally by the FIRST occurrence
+    instead. Rows sharing ``Entity_logical_id`` form one designation; the first
+    non-empty ``Naal_wholename`` is the primary name, the rest are aliases. Rows
+    with an empty name field (address/birth/ID sub-records) are skipped.
     """
     text = data.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    rows = list(csv.reader(io.StringIO(text), delimiter=";"))
+    if not rows:
+        return []
+    header = rows[0]
+
+    def _idx(name: str) -> int | None:
+        try:
+            return header.index(name)  # first occurrence
+        except ValueError:
+            return None
+
+    i_eid, i_name = _idx("Entity_logical_id"), _idx("Naal_wholename")
+    i_sub, i_prog = _idx("Subject_type"), _idx("Programme")
+    if i_eid is None or i_name is None:
+        return []
+
+    def _cell(row: list[str], i: int | None) -> str:
+        return row[i].strip() if i is not None and i < len(row) else ""
+
     grouped: dict[str, dict[str, Any]] = {}
-    for row in reader:
-        lid = (row.get("Entity_LogicalId") or "").strip()
-        whole = (row.get("NameAlias_WholeName") or "").strip()
-        if not lid or not whole:
+    for row in rows[1:]:
+        eid, whole = _cell(row, i_eid), _cell(row, i_name)
+        if not eid or not whole:
             continue
-        entry = grouped.get(lid)
+        entry = grouped.get(eid)
         if entry is None:
-            grouped[lid] = {
+            grouped[eid] = {
                 "list": "EU-CONSOLIDATED",
-                "entry_id": lid,
+                "entry_id": eid,
                 "name": whole,
-                "type": (row.get("Entity_SubjectType") or "").strip(),
-                "program": (row.get("Entity_Regulation_Programme") or "").strip(),
+                "type": _cell(row, i_sub),
+                "program": _cell(row, i_prog),
                 "remarks": None,
-                "aliases": [],
+                "aliases": cast(list[Any], []),
             }
         else:
             entry["aliases"].append(whole)
@@ -300,28 +323,34 @@ def parse_uk_fcdo_csv(data: bytes) -> list[dict[str, Any]]:
     Successor to the OFSI consolidated list (withdrawn 2026-01-28).
     """
     text = data.decode("utf-8-sig")  # FCDO CSV is UTF-8, may carry a BOM
-    reader = csv.DictReader(io.StringIO(text))
+    # The live file opens with a "Report Date: <date>" preamble line ABOVE the
+    # header, which would otherwise be read as the header. Skip any preamble up
+    # to the real header row (the first line naming the "Unique ID" column).
+    lines = text.splitlines()
+    start = next((i for i, ln in enumerate(lines) if "Unique ID" in ln), 0)
+    reader = csv.DictReader(io.StringIO("\n".join(lines[start:])))
     grouped: dict[str, dict[str, Any]] = {}
     for row in reader:
         uid = (row.get("Unique ID") or row.get("OFSI Group ID") or "").strip()
         if not uid:
             continue
         whole = _join_name_parts(row, _UK_NAME_COLS)
-        alias_type = (row.get("Alias Type") or "").strip().casefold()
+        # "Name type" distinguishes the primary name from AKAs/aliases.
+        name_type = (row.get("Name type") or "").strip().casefold()
         entry = grouped.get(uid)
         if entry is None:
             new_entry: dict[str, Any] = {
                 "list": "UK-FCDO",
                 "entry_id": uid,
                 "name": "",
-                "type": (row.get("Individual/Entity/Ship") or "").strip(),
-                "program": (row.get("Regime") or "").strip(),
+                "type": (row.get("Type of entity") or row.get("Designation Type") or "").strip(),
+                "program": (row.get("Regime Name") or "").strip(),
                 "remarks": None,
                 "aliases": cast(list[Any], []),
             }
             grouped[uid] = new_entry
             entry = new_entry
-        if alias_type == "primary name" and not entry["name"]:
+        if "primary" in name_type and not entry["name"]:
             entry["name"] = whole
         elif whole:
             entry["aliases"].append(whole)

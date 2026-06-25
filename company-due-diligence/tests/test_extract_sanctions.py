@@ -130,28 +130,38 @@ def test_parse_bis_csl_json():
     assert e["program"] == "EAR"
 
 
+# Mirrors the live "csvFullSanctionsList" shape: semicolon-delimited, a lead
+# Date_file column, and a DUPLICATE Entity_logical_id column (trailing, empty on
+# name rows) — the parser must index the FIRST occurrence positionally, not via
+# DictReader (which would collapse to the empty trailing one). One row has an
+# empty Naal_wholename (an address/birth sub-record) and must be skipped.
 _EU_CSV = (
-    b"Entity_LogicalId;NameAlias_WholeName;Entity_SubjectType;Entity_Regulation_Programme\r\n"
-    b"13;Bad Actor LLC;enterprise;RUS\r\n"
-    b"13;Bad Actor OOO;enterprise;RUS\r\n"
-    b"14;Jane Doe;person;RUS\r\n"
+    b"Date_file;Entity_logical_id;Subject_type;Programme;Naal_wholename;Entity_logical_id\r\n"
+    b"2026-06-24;13;E;RUS;Bad Actor LLC;\r\n"
+    b"2026-06-24;13;E;RUS;Bad Actor OOO;\r\n"
+    b"2026-06-24;13;E;RUS;;\r\n"
+    b"2026-06-24;14;P;RUS;Jane Doe;\r\n"
 )
 
 def test_parse_eu_csv_groups_by_logical_id():
     from cdd.extract.sanctions import parse_eu_csv
     entries = parse_eu_csv(_EU_CSV)
-    assert len(entries) == 2
+    assert len(entries) == 2  # grouped by Entity_logical_id; empty-name row skipped
     e = next(x for x in entries if x["entry_id"] == "13")
     assert e["list"] == "EU-CONSOLIDATED"
     assert e["name"] == "Bad Actor LLC"
     assert "Bad Actor OOO" in e["aliases"]
-    assert e["type"] == "enterprise"
+    assert e["type"] == "E"
     assert e["program"] == "RUS"
 
 
+# Mirrors the live FCDO file: a "Report Date:" preamble line ABOVE the header
+# (must be skipped), and the real column names — "Name type" (not "Alias Type"),
+# "Regime Name" (not "Regime"), "Type of entity" (not "Individual/Entity/Ship").
 _UK_FCDO_CSV = (
+    b"Report Date: 24-Jun-2026\r\n"
     b"Unique ID,OFSI Group ID,Name 1,Name 2,Name 3,Name 4,Name 5,Name 6,"
-    b"Alias Type,Regime,Individual/Entity/Ship\r\n"
+    b"Name type,Regime Name,Type of entity\r\n"
     b"UKS0001,GRP1,Bad,,,Actor,LLC,,Primary name,Russia,Entity\r\n"
     b"UKS0001,GRP1,Bad,,,Actor,Limited,,AKA,Russia,Entity\r\n"
     b"UKS0002,GRP2,Jane,,,Doe,,,Primary name,Russia,Individual\r\n"

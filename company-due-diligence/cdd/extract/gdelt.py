@@ -12,6 +12,8 @@ from collections.abc import Callable
 from typing import Any, cast
 from urllib.parse import urlencode
 
+from cdd.extract import ExtractorUnavailable
+
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 
@@ -19,12 +21,22 @@ def parse_articles(data: bytes) -> list[dict[str, Any]]:
     """Parse a GDELT DOC artlist JSON response into article dicts.
 
     Returns [] for empty/blank bodies (GDELT returns an empty body for
-    zero-result queries).
+    zero-result queries). GDELT also throttles to ~1 request / 5s and answers
+    over-limit or malformed-query requests with a PLAIN-TEXT body (HTTP 429 or
+    200), not JSON — those are surfaced as ``ExtractorUnavailable`` so the caller
+    sees a real rate-limit/error signal instead of an opaque JSON decode failure
+    (and never mistakes throttling for "no adverse media found").
     """
     text = data.decode("utf-8").strip()
     if not text:
         return []
-    raw: Any = json.loads(text)
+    try:
+        raw: Any = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ExtractorUnavailable(
+            "GDELT returned a non-JSON body (likely rate-limited — max ~1 req/5s — "
+            f"or a query error): {text[:160]}"
+        ) from exc
     payload: dict[str, Any] = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
     articles: list[dict[str, Any]] = []
     for a in payload.get("articles", []):
