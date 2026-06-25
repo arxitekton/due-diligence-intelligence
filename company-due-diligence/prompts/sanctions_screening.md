@@ -25,19 +25,36 @@ affiliates, key principals/beneficial owners), raw source files in
    person or entity is treated as effectively designated, even if not listed by name — screen
    all such entities. Ownership percentages must derive from a filed source; estimated or
    inferred percentages are `[INFERENCE]`.
+   To corroborate entity identity and surface direct/ultimate parent links, the
+   `cdd.extract.gleif` helper (`search_by_name`) resolves legal names to LEI records
+   (canonical legal name, jurisdiction, status) and GLEIF L1/L2 parent relationships — use it
+   to confirm/normalise names before screening. It does NOT establish ownership percentages;
+   those still require a filed source.
 
-2. **Screen each entity** against every list in the authoritative set:
-   - OFAC Specially Designated Nationals (SDN) — `https://www.treasury.gov/ofac/downloads/sdn.csv`
-   - OFAC Consolidated (non-SDN) — `https://www.treasury.gov/ofac/downloads/consolidated.csv`
-   - EU Consolidated Sanctions List — European Commission Financial Sanctions Files portal
-   - UK OFSI Consolidated List — `https://assets.publishing.service.gov.uk/...consolidated-list.csv`
-   - UN Consolidated List — UN Security Council list (1267/1989/2253 and related committees)
-   - BIS Entity List (export-control) — `https://www.bis.doc.gov/index.php/policy-guidance/lists-of-parties-of-concern/entity-list`
+2. **Screen each entity** against every list in the authoritative set. The
+   `cdd.extract.sanctions` helper (installed with the `extract` extra) now **fetches, parses,
+   and name-matches all of these** via `fetch_and_screen(name, list_id=...)` — this is the
+   PREFERRED mechanism. **Set `CDD_HTTP_USER_AGENT` to a real org + contact first** (gov
+   endpoints reject requests without it). Supported `list_id`s and their live sources:
+   - `OFAC-SDN` — OFAC Specially Designated Nationals
+   - `EU-CONSOLIDATED` — EU Consolidated Financial Sanctions File (European Commission)
+   - `UK-FCDO` — UK Sanctions List (FCDO). **The OFSI consolidated list was withdrawn
+     2026-01-28 — do not use the old `assets.publishing.service.gov.uk` CSV.**
+   - `UN-CONSOLIDATED` — UN Security Council Consolidated List (1267/1989/2253 & related).
+     **Ingest-to-screen ONLY: UN terms forbid redistribution — screen, then do NOT warehouse
+     the raw bytes** (`LIST_METADATA["UN-CONSOLIDATED"]["retention_policy"] == "session_only"`).
+   - `BIS-CSL` — BIS Entity List + Consolidated Screening List (needs a free ITA API key for
+     the REST endpoint; `CDD_BIS_API_KEY` if configured).
 
-   Search using the legal name and all known aliases/transliterations for each entity.
-   For OFAC-SDN, `cdd.extract.sanctions` (`fetch_and_screen` / `parse_sdn_csv` + `screen_name`)
-   is an OPTIONAL aid; its absence does not excuse skipping the OFAC-SDN screen. The agent must
-   screen directly from the list portals / downloadable files when the helper is unavailable.
+   Also screen **OFAC Consolidated (non-SDN)** (`https://www.treasury.gov/ofac/downloads/consolidated.csv`)
+   directly — it is not yet in the helper.
+
+   Screen each entity using its legal name AND all known aliases/transliterations. NOTE the
+   matcher's guard: a single-token query (e.g. a bare surname) only produces `exact` matches;
+   `partial` (token-subset) matching requires ≥2 tokens — so pass FULL names, not lone words,
+   or real hits listed under a longer official name will be missed. The helper is an aid: if it
+   is unavailable for a list, the agent MUST screen directly from that list's official portal /
+   downloadable file. Its absence never excuses skipping a list.
 
 3. **Record every list screened** — list name, URL or portal used, and the as-of/publication
    date of the list version consulted. This is mandatory even when no match is found.
@@ -58,8 +75,8 @@ affiliates, key principals/beneficial owners), raw source files in
    secondary media coverage without a corresponding official list entry.
 
 6. **"No match" reporting.** Absence of a match must be reported as:
-   `"no match on [OFAC-SDN, OFAC-Consolidated, EU-Consolidated, UK-OFSI, UN-Consolidated,
-   BIS-Entity-List] as of [date]"`. It must NEVER be rendered as "clean," "not sanctioned,"
+   `"no match on [OFAC-SDN, OFAC-Consolidated, EU-Consolidated, UK-FCDO, UN-Consolidated,
+   BIS-CSL] as of [date]"`. It must NEVER be rendered as "clean," "not sanctioned,"
    or "clear." Sanctions lists are updated frequently; no-match status is point-in-time only.
 
 ### B. Sanctioned-Country / Region Exposure
@@ -114,6 +131,14 @@ affiliates, key principals/beneficial owners), raw source files in
     - An allegation, indictment, or investigation in progress is an allegation: attribute it
       explicitly (`"According to [source], …"`) and tag it `[INFERENCE]` if it goes beyond
       the published text. Never assert an allegation as a concluded fact.
+
+    To DISCOVER candidate adverse-media items, the `cdd.extract.gdelt` helper
+    (`search_adverse_media(query)`) queries the open GDELT event database. Treat its results as
+    **SIGNAL-tier leads only** (`source_class: adverse_media_event`) — never as a finding in
+    themselves: follow each lead to the underlying reputable named source and apply the
+    fact-vs-allegation discipline above before recording anything. GDELT is rate-limited to
+    ~1 request / 5s; on throttle it raises `ExtractorUnavailable` (a rate-limit signal, NOT
+    "no adverse media") — back off and retry, do not interpret the error as a clean result.
 
 14. **Separation of fact and inference:** sanctions hits from official lists are `fact` claims
     (cite the list entry). Disclosed operational exposure is `fact` (cite the filing). PEP
@@ -258,8 +283,11 @@ Corresponding `extracted` events in `artifact_registry.jsonl`.
 - Separate fact (official list entry / filed disclosure) from inference. Tag inference
   `[INFERENCE]`. Allegations are attributed and tagged, never asserted as fact.
 - Missing disclosures → `null`, never estimated.
-- `cdd.extract.sanctions` is an OPTIONAL aid for OFAC-SDN only; its absence does not excuse
-  skipping screening.
+- `cdd.extract.sanctions` (`fetch_and_screen`) is the preferred aid and covers OFAC-SDN,
+  EU-CONSOLIDATED, UK-FCDO, UN-CONSOLIDATED, and BIS-CSL; `cdd.extract.gleif` aids entity
+  resolution and `cdd.extract.gdelt` aids adverse-media discovery. These are aids — their
+  absence does not excuse skipping any list, and GDELT/GLEIF results are signal-tier leads,
+  never findings on their own. UN list data is screen-only — never warehoused or redistributed.
 
 ## Hand-off
 `evidence_validation.md` validates all artifacts in `structured/`.
