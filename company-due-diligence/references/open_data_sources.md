@@ -143,9 +143,10 @@ The skill wires only **SEC EDGAR** (`cdd/extract/edgar.py`) and **OFAC SDN** (`c
 ### Priority 2 — high value, minor friction
 5. **US econ pack** — `extract/econ.py`: Census + BEA + BLS + FRED (+ World Bank, OECD-SDMX, Eurostat). All public-domain/CC-BY. Powers `market_intelligence.md`. *Effort: M (shared SDMX/REST client).*
    - ✓ **BLS + World Bank + Eurostat wired & live-smoked** (keyless; BLS PD, WB/Eurostat CC-BY; Eurostat decodes JSON-stat 2.0 via row-major stride indexing). Pending sub-batches: **FRED/BEA/Census** (require free API keys to live-verify — Census now key-gated too), **OECD** (SDMX-JSON — needs per-dataflow catalog research to construct valid queries; deferred until a live query is verified, never shipped unverified).
-6. **Patents** — `extract/patents.py`: USPTO ODP + EPO OPS (OAuth). Public-domain/Fair-Use; **skip WIPO PATENTSCOPE** (terms ban automation). *Effort: M.*
-7. **EDINET (JP)** — REST v2 + key, PDL 1.0. Natural given the Takeda e2e baseline. *Effort: S–M.*
+6. **Patents** — `extract/patents.py`: USPTO ODP + EPO OPS (OAuth). Public-domain/Fair-Use; **skip WIPO PATENTSCOPE** (terms ban automation). *Effort: M.* **Blocked on credentials** (probed 2026-06-27): EPO OPS → hard `403`/OAuth; USPTO ODP/PatentsView → key-gated or host-unreachable. Needs free EPO consumer key+secret / USPTO key to live-verify before shipping.
+7. **EDINET (JP)** — REST v2 + key, PDL 1.0. Natural given the Takeda e2e baseline. *Effort: S–M.* (Needs free Subscription-Key to live-verify.)
 8. **Wikidata / OpenAlex** — CC0 enrichment for entity disambiguation. *Effort: S each.*
+   - ✓ **Wikidata wired & live-smoked** (`cdd/extract/wikidata.py`, keyless CC0): `search_entities` (name→Q-id) + `get_entity_facts` (curated DD props — LEI, website, country, industry, parent, inception, ISIN…). Complements GLEIF (LEI cross-check). **OpenAlex pending** — now requires a free API key (since 2026-02-13).
 
 ### Priority 3 — conditional (gate behind licence/config)
 9. **OpenSanctions / OpenSanctions PEPs** — best screening graph, but CC-BY-NC → **requires a paid licence for commercial DD**. Wire as an *optional, key-gated* backend; do not store/redistribute under the free NC tier. *Effort: M.*

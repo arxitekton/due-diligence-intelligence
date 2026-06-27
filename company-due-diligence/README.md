@@ -66,7 +66,7 @@ artifact across all runs. `latest/` is published only after validation passes.
 | **Prompts** (14) | `prompts/` | orchestrator · discovery · retrieval · extraction prompts (evidence, product, financial, corporate-structure, market-intel, risk, event, **sanctions-screening**) · validation · dossier · run comparison |
 | **References** (10) | `references/` | research methodology · source priority · data quality · anti-hallucination · **sanctions screening rules** · financial & product extraction rules · legal/ToS · provenance & reproducibility · **open data sources** |
 | **CLIs** (15) | `scripts/` | run lifecycle, hashing, registry updates, inventory/manifest builders, compare/change-log, validation, merge, exporters, install |
-| **Optional extraction tools** | `cdd/extract/` | HTML cleaning, PDF tables, EDGAR, SSRF-guarded HTTP fetch, **multi-list sanctions screening** (OFAC/EU/UK-FCDO/BIS/UN — `cdd.extract.sanctions`), **GLEIF LEI**, **UK Companies House**, **GDELT adverse-media**, **economic indicators** (BLS, World Bank, Eurostat) — lazy-loaded; absence degrades gracefully |
+| **Optional extraction tools** | `cdd/extract/` | HTML cleaning, PDF tables, EDGAR, SSRF-guarded HTTP fetch, **multi-list sanctions screening** (OFAC/EU/UK-FCDO/BIS/UN — `cdd.extract.sanctions`), **GLEIF LEI**, **UK Companies House**, **GDELT adverse-media**, **economic indicators** (BLS, World Bank, Eurostat), **Wikidata** entity enrichment — lazy-loaded; absence degrades gracefully |
 
 The `scripts/` CLIs are thin, deterministic wrappers over the `cdd/` engine — `SKILL.md` and
 the prompts drive the agent through `scripts/`, while `cdd/` holds the testable logic.

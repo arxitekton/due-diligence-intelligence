@@ -30,5 +30,6 @@ def capabilities() -> dict[str, bool]:
         "companies_house": _have("httpx"),
         "gdelt": _have("httpx"),
         "econ": _have("httpx"),
+        "wikidata": _have("httpx"),
         "sanctions_xml": _have("defusedxml"),
     }
