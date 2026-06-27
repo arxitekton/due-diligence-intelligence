@@ -4,12 +4,15 @@ from cdd.extract import ExtractorUnavailable
 from cdd.extract.econ import (
     BLS_SERIES_URL,
     EUROSTAT_BASE_URL,
+    OECD_BASE_URL,
     WORLD_BANK_URL,
     fetch_bls_series,
     fetch_eurostat,
+    fetch_oecd,
     fetch_world_bank,
     parse_bls,
     parse_eurostat,
+    parse_oecd,
     parse_world_bank,
 )
 
@@ -135,3 +138,48 @@ def test_fetch_eurostat_expands_list_params():
     assert captured["url"].startswith(f"{EUROSTAT_BASE_URL}/nama_10_gdp")
     assert "geo=DE" in captured["url"] and "geo=FR" in captured["url"]  # list expanded
     assert "format=JSON" in captured["url"]
+
+
+# Real-shaped OECD SDMX-JSON (AllDimensions): observations keyed by colon-joined
+# dimension positions; structures[0].dimensions.observation gives the code lists.
+# 3 dims [REF_AREA, MEASURE, TIME_PERIOD] → key "1:0:0" = FRA / LI / 2026-Q1.
+_OECD_JSON = (
+    b'{"data":{"dataSets":[{"observations":{'
+    b'"0:0:0":[101.5,0],"1:0:0":[99.2,0]}}],'
+    b'"structures":[{"name":"Composite leading indicators","dimensions":{"observation":['
+    b'{"id":"REF_AREA","values":[{"id":"USA","name":"United States"},'
+    b'{"id":"FRA","name":"France"}]},'
+    b'{"id":"MEASURE","values":[{"id":"LI","name":"CLI"}]},'
+    b'{"id":"TIME_PERIOD","values":[{"id":"2026-Q1","name":"2026-Q1"}]}]}}]}}'
+)
+
+
+def test_parse_oecd_decodes_positional_keys():
+    obs = parse_oecd(_OECD_JSON)
+    assert len(obs) == 2
+    usa = next(o for o in obs if o["area"] == "USA")
+    assert usa["source"] == "OECD" and usa["series"] == "LI"
+    assert usa["period"] == "2026-Q1" and usa["value"] == 101.5
+    fra = next(o for o in obs if o["area"] == "FRA")
+    assert fra["value"] == 99.2
+
+
+def test_parse_oecd_empty_on_garbage():
+    assert parse_oecd(b"{}") == []
+    assert parse_oecd(b'{"data":{}}') == []
+
+
+def test_fetch_oecd_builds_sdmx_url():
+    captured = {}
+
+    def fake(url: str) -> bytes:
+        captured["url"] = url
+        return _OECD_JSON
+
+    obs = fetch_oecd(
+        "OECD.SDD.STES,DSD_STES@DF_CLI,4.1", params={"lastNObservations": 1}, fetcher=fake
+    )
+    assert len(obs) == 2
+    assert captured["url"].startswith(f"{OECD_BASE_URL}/OECD.SDD.STES,DSD_STES@DF_CLI,4.1/all")
+    assert "dimensionAtObservation=AllDimensions" in captured["url"]
+    assert "lastNObservations=1" in captured["url"]

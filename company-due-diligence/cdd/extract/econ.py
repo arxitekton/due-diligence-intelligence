@@ -26,6 +26,7 @@ from cdd.extract import ExtractorUnavailable
 BLS_SERIES_URL = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
 WORLD_BANK_URL = "https://api.worldbank.org/v2"
 EUROSTAT_BASE_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
+OECD_BASE_URL = "https://sdmx.oecd.org/public/rest/data"
 
 
 def _to_float(value: Any) -> float | None:
@@ -263,3 +264,104 @@ def fetch_eurostat(
     url = f"{EUROSTAT_BASE_URL}/{dataset}?{urlencode(query, doseq=True)}"
     fetch = fetcher or _default_fetcher
     return parse_eurostat(fetch(url))
+
+
+# ---------------------------------------------------------------------------
+# OECD — SDMX-JSON (keyless, CC BY 4.0 for content from 2024-07-01)
+# ---------------------------------------------------------------------------
+
+
+def parse_oecd(data: bytes) -> list[dict[str, Any]]:
+    """Decode an OECD SDMX-JSON (``dimensionAtObservation=AllDimensions``) response.
+
+    Observations are keyed by colon-separated dimension POSITIONS (e.g.
+    ``"8:0:4:0:1:0:0:0:0:0"``); each position indexes into the matching
+    ``structures[0].dimensions.observation[i].values`` list to recover the code.
+    The observation array's first element is the numeric value. REF_AREA /
+    MEASURE / TIME_PERIOD map to the normalized area / series / period fields.
+    Enforce OECD's 60-downloads/hr limit at the call site; attribute (CC BY 4.0).
+    """
+    raw: Any = json.loads(data.decode("utf-8"))
+    payload: dict[str, Any] = cast("dict[str, Any]", raw) if isinstance(raw, dict) else {}
+    data_obj = payload.get("data")
+    data_obj = cast("dict[str, Any]", data_obj) if isinstance(data_obj, dict) else {}
+    structures_raw = data_obj.get("structures")
+    structures: list[Any] = (
+        cast("list[Any]", structures_raw) if isinstance(structures_raw, list) else []
+    )
+    datasets_raw = data_obj.get("dataSets")
+    datasets: list[Any] = (
+        cast("list[Any]", datasets_raw) if isinstance(datasets_raw, list) else []
+    )
+    if not structures or not datasets:
+        return []
+    s0 = cast("dict[str, Any]", structures[0]) if isinstance(structures[0], dict) else {}
+    ds0 = cast("dict[str, Any]", datasets[0]) if isinstance(datasets[0], dict) else {}
+
+    dims_obj = s0.get("dimensions")
+    dims_obj = cast("dict[str, Any]", dims_obj) if isinstance(dims_obj, dict) else {}
+    obsdims_raw = dims_obj.get("observation")
+    obsdims: list[Any] = (
+        cast("list[Any]", obsdims_raw) if isinstance(obsdims_raw, list) else []
+    )
+    # Per-dimension ordered value codes (position → code).
+    dim_codes: list[tuple[str, list[str]]] = []
+    for dim in obsdims:
+        dim_d = cast("dict[str, Any]", dim) if isinstance(dim, dict) else {}
+        vals_raw = dim_d.get("values")
+        vals: list[Any] = cast("list[Any]", vals_raw) if isinstance(vals_raw, list) else []
+        codes = [
+            str(cast("dict[str, Any]", v).get("id", "")) if isinstance(v, dict) else ""
+            for v in vals
+        ]
+        dim_codes.append((str(dim_d.get("id", "")), codes))
+
+    observations = ds0.get("observations")
+    observations = cast("dict[str, Any]", observations) if isinstance(observations, dict) else {}
+    label = str(s0.get("name", ""))
+    obs: list[dict[str, Any]] = []
+    for key, arr in observations.items():
+        positions = key.split(":")
+        coords: dict[str, str] = {}
+        for i, (dim_id, codes) in enumerate(dim_codes):
+            if i >= len(positions):
+                break
+            try:
+                pos = int(positions[i])
+            except (TypeError, ValueError):
+                continue
+            coords[dim_id] = codes[pos] if 0 <= pos < len(codes) else ""
+        value = cast("list[Any]", arr)[0] if isinstance(arr, list) and arr else None
+        obs.append(
+            {
+                "source": "OECD",
+                "series": coords.get("MEASURE", ""),
+                "area": coords.get("REF_AREA"),
+                "period": coords.get("TIME_PERIOD"),
+                "value": _to_float(value),
+                "label": label,
+                "dims": coords,
+            }
+        )
+    return obs
+
+
+def fetch_oecd(
+    dataflow: str,
+    key: str = "all",
+    *,
+    params: dict[str, Any] | None = None,
+    fetcher: Callable[[str], bytes] | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch an OECD SDMX-JSON dataflow and decode it.
+
+    ``dataflow`` is the full SDMX ref, e.g.
+    ``"OECD.SDD.STES,DSD_STES@DF_CLI,4.1"`` (composite leading indicators).
+    ``key`` filters dimensions positionally (``"all"`` = everything — constrain
+    large flows, e.g. ``params={"lastNObservations": 1}`` or a ref-area key).
+    """
+    query: dict[str, Any] = {"format": "jsondata", "dimensionAtObservation": "AllDimensions"}
+    query.update(params or {})
+    url = f"{OECD_BASE_URL}/{dataflow}/{key}?{urlencode(query, doseq=True)}"
+    fetch = fetcher or _default_fetcher
+    return parse_oecd(fetch(url))
