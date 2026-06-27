@@ -102,6 +102,18 @@ def _null_to_none(value: str) -> str | None:
     return None if stripped == _OFAC_NULL else stripped
 
 
+def _clean_program(value: str) -> str:
+    """Normalise the OFAC SDN Program field to a clean ``"A; B; C"`` string.
+
+    OFAC packs multiple programmes as ``[A] [B] [C]``, but the SDN.csv export
+    drops the OUTER brackets, leaving the field as ``A] [B] [C`` (single
+    programmes have no brackets at all, e.g. ``CUBA``). Split on the ``] [``
+    separator and strip any residual brackets so the field never leaks ``]``/``[``.
+    """
+    parts = [p.strip().strip("[]").strip() for p in value.split("] [")]
+    return "; ".join(p for p in parts if p)
+
+
 # OFAC encodes alternate names inside the free-text Remarks field as
 # "a.k.a. 'NAME'", "aka NAME", "f.k.a. ...", "n.k.a. ...", separated by ';'.
 # Screening that ignores these misses entities listed only under a front/alias
@@ -142,7 +154,7 @@ def parse_sdn_csv(data: bytes) -> list[dict[str, Any]]:
         ent_num = padded[0].strip()
         sdn_name = padded[1].strip()
         sdn_type = _null_to_none(padded[2]) or ""
-        program = padded[3].strip()
+        program = _clean_program(padded[3].strip())
         remarks_raw = padded[11].strip() if len(padded) > 11 else ""
         remarks = _null_to_none(remarks_raw)
 
