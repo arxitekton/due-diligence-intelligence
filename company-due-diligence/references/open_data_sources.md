@@ -142,6 +142,7 @@ The skill wires only **SEC EDGAR** (`cdd/extract/edgar.py`) and **OFAC SDN** (`c
 
 ### Priority 2 — high value, minor friction
 5. **US econ pack** — `extract/econ.py`: Census + BEA + BLS + FRED (+ World Bank, OECD-SDMX, Eurostat). All public-domain/CC-BY. Powers `market_intelligence.md`. *Effort: M (shared SDMX/REST client).*
+   - ✓ **BLS + World Bank wired & live-smoked** (keyless, public-domain/CC-BY). Pending sub-batches: **FRED/BEA/Census** (require free API keys to live-verify — Census now key-gated too), **OECD/Eurostat** (SDMX/JSON-stat, keyless but heavier parsers).
 6. **Patents** — `extract/patents.py`: USPTO ODP + EPO OPS (OAuth). Public-domain/Fair-Use; **skip WIPO PATENTSCOPE** (terms ban automation). *Effort: M.*
 7. **EDINET (JP)** — REST v2 + key, PDL 1.0. Natural given the Takeda e2e baseline. *Effort: S–M.*
 8. **Wikidata / OpenAlex** — CC0 enrichment for entity disambiguation. *Effort: S each.*

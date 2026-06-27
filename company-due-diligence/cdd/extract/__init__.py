@@ -29,5 +29,6 @@ def capabilities() -> dict[str, bool]:
         "gleif": _have("httpx"),
         "companies_house": _have("httpx"),
         "gdelt": _have("httpx"),
+        "econ": _have("httpx"),
         "sanctions_xml": _have("defusedxml"),
     }
