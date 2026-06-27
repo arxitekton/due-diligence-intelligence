@@ -20,5 +20,5 @@ def test_html_clean_raises_or_works_without_crashing_import():
 def test_capabilities_reports_new_backends():
     from cdd.extract import capabilities
     caps = capabilities()
-    for key in ("gleif", "companies_house", "gdelt", "econ", "sanctions_xml"):
+    for key in ("gleif", "companies_house", "gdelt", "econ", "wikidata", "sanctions_xml"):
         assert key in caps and isinstance(caps[key], bool)
