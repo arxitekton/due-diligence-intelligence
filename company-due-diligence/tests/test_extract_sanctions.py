@@ -24,6 +24,20 @@ def test_parse_sdn_csv():
     assert rows[1]["remarks"] is None  # "-0-" → None
 
 
+# OFAC packs multiple programmes as "[A] [B] [C]" but the SDN.csv export drops the
+# outer brackets, yielding "A] [B] [C". The parser must normalise that to a clean
+# "A; B; C" instead of leaking stray brackets into the program field.
+_SDN_MULTIPROG = (
+    b'9,"MULTI PROG ENTITY","entity","IRAN] [SDGT] [IRGC] [IFSR",'
+    b'"-0-","-0-","-0-","-0-","-0-","-0-","-0-","-0-"\n'
+)
+
+
+def test_parse_sdn_csv_normalizes_bracketed_programmes():
+    rows = parse_sdn_csv(_SDN_MULTIPROG)
+    assert rows[0]["program"] == "IRAN; SDGT; IRGC; IFSR"
+
+
 def test_screen_name_exact_and_partial():
     rows = parse_sdn_csv(_SDN)
     exact = screen_name("Acme Analytics", rows)
