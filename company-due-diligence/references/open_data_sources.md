@@ -104,6 +104,8 @@ The arms diverged on five verdicts. Each resolved by preferring the **web-verifi
 
 ## 3. Tier C — pointers (catalogued, not deep-vetted)
 
+> ✓ **Wired as keyless connectors** (`cdd/extract/registries.py`, live-smoked 2026-06-28): **Brønnøysund** (NO), **ARES** (CZ), **PRH/avoindata** (FI), **e-Business Register** (EE) — `search_brreg` / `lookup_ares` / `search_prh` / `search_ariregister` → normalized `company_registry` records. **Zefix** (CH) needs auth (401); **KRS** (PL) is keyless but has a heavy nested schema (deferred); **DART** (KR), **INPI RNE** (FR) need keys/tokens. The rest below remain pointers.
+
 National company registries: **Handelsregister/Unternehmensregister** (DE), **Bundesanzeiger** (DE, financials), **INPI RNE** (FR, open), **Infogreffe** (FR), **Registro Imprese** (IT), **Registradores** (ES), **KVK** (NL), **KBO/BCE** (BE, open), **CVR/Virk** (DK, open), **Brønnøysund** (NO, open REST), **Bolagsverket** (SE), **PRH/avoindata** (FI, open), **LBR** (LU), **Zefix** (CH, open REST), **Firmenbuch** (AT), **CRO** (IE), **KRS** (PL, open), **ARES** (CZ, open), **e-Business Register** (EE, open), **Receita Federal CNPJ** (BR, open bulk), **CIPC** (ZA), **GSXT** (CN, captcha), Korea **DART** (open API).
 
 Exchanges / disclosure: **Euronext**, **Deutsche Börse/Xetra**, **LSE RNS**, **Borsa Italiana**, **B3** (BR), **JPX/TDnet** (JP, open), **KRX/KIND** (KR), **TWSE MOPS** (TW, open), **Bursa Malaysia**, **IDX** (ID), **Tadawul** (SA).
