@@ -8,6 +8,7 @@ Extract entities, ownership relationships, subsidiaries, and business units from
 
 ## Procedure
 1. Identify corporate-structure sources: SEC annual report Exhibit 21 (subsidiaries list), company registration documents, registry filings (Companies House, state SOS, etc.), official IR/annual-report organizational charts.
+   **Entity-resolution aids (optional, under the `extract` extra):** to confirm/normalise legal names and surface parent links before recording entities, `cdd.extract.gleif` (`search_by_name`) resolves names to LEI records (canonical legal name, jurisdiction, status, GLEIF L1/L2 parent), and `cdd.extract.wikidata` (`search_entities` → Q-id, then `get_entity_facts`) cross-checks LEI/ISIN, official website, country, industry, and `parent_organization`. Set `CDD_HTTP_USER_AGENT` first. GLEIF is regulator-curated (treat LEI/parent as reference-grade); Wikidata is `knowledge_graph` SIGNAL tier (crowd-sourced — verify against a primary source before asserting as fact). These corroborate identity only; they do NOT establish ownership percentages.
 2. For each source, extract:
    - **Legal entities**: registered name, jurisdiction, registration number (if available), entity type (corporation, LLC, Ltd, etc.), relationship to parent (wholly-owned subsidiary, partially-owned, affiliate, branch, division).
    - **Ownership stakes**: percentage ownership, direct vs. indirect, any known encumbrances.
@@ -52,7 +53,7 @@ Extract entities, ownership relationships, subsidiaries, and business units from
 One or more `extracted_artifact` JSON files (with `artifact_type: "corporate_structure"`) in `structured/`, each validating against the `extracted_artifact` schema with a complete `lineage` block. Corresponding `extracted` events in `artifact_registry.jsonl`.
 
 ## Hard rules
-Obey all rules in `references/anti_hallucination_rules.md`. Never invent ownership percentages, jurisdiction registrations, or entity names not present in a retrieved source. Unknown fields must be `null`. Inferences must be tagged `[INFERENCE]` in `notes`.
+Obey all rules in `references/anti_hallucination_rules.md`. Never invent ownership percentages, jurisdiction registrations, or entity names not present in a retrieved source. Unknown fields must be `null`. Inferences must be tagged `[INFERENCE]` in `notes`. Entity-resolution helpers (`cdd.extract.gleif`, `cdd.extract.wikidata`) corroborate identity only — never source an ownership percentage from them, and treat Wikidata facts as signal-tier (verify against a filed source before asserting).
 
 ## Hand-off
 `evidence_validation.md` validates all `structured/` artifacts. `dossier_generation.md` renders the Corporate Structure and Ownership/Legal Entities sections from these artifacts.
