@@ -13,6 +13,7 @@ Extract competitor, partnership, customer, and market information from retrieved
    - **Strategic partnerships**: partner name, nature of partnership, announcement date or period, source citation.
    - **Key customers / customer segments**: named customers (if publicly disclosed), customer count or segment descriptions, revenue concentration data if disclosed.
    - **Markets**: geographic markets, vertical markets, addressable market estimates (only if stated in source with citation).
+   - **Macro / sector context (optional aid)**: to ground market sizing and economic context with cited public data, `cdd.extract.econ` (under the `extract` extra) fetches keyless official series — `fetch_bls_series` (US BLS: labour, CPI), `fetch_world_bank` (global development indicators), `fetch_eurostat` (EU statistics, JSON-stat), `fetch_oecd` (OECD SDMX, e.g. composite leading indicators). Set `CDD_HTTP_USER_AGENT` first; respect OECD's ~60 downloads/hr. Record each pulled series as its own `economic_indicator` artifact (secondary tier) citing the provider + series id + as-of date.
 3. For each extracted group, compose an `extracted_artifact` document:
    - `artifact_id`: `art_` + 16 hex chars.
    - `schema_version`: `"1.0"`.
@@ -46,7 +47,7 @@ Extract competitor, partnership, customer, and market information from retrieved
 One or more `extracted_artifact` JSON files in `structured/` (artifact types: `competitors`, `partnerships`, `customers`, `markets`), each validating against the `extracted_artifact` schema with a complete `lineage` block. Corresponding `extracted` events in `artifact_registry.jsonl`.
 
 ## Hard rules
-Obey all rules in `references/anti_hallucination_rules.md`. Never name competitors, customers, or partners from training-data memory — only from retrieved sources. Market-size figures must cite the source document and original wording. Inferences must be tagged `[INFERENCE]`.
+Obey all rules in `references/anti_hallucination_rules.md`. Never name competitors, customers, or partners from training-data memory — only from retrieved sources. Market-size figures must cite the source document and original wording. Inferences must be tagged `[INFERENCE]`. Economic-indicator series from `cdd.extract.econ` are **macro context** (`source_class: economic_indicator`, secondary tier) — cite the series + provider + as-of date; NEVER merge an indicator into a company-specific market-size claim or present it as the company's own figure.
 
 ## Hand-off
 `evidence_validation.md` validates all `structured/` artifacts. `dossier_generation.md` renders the Customers & Markets, Competitors, and Partnerships sections from these artifacts.
